@@ -1,1423 +1,1259 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import Link from "next/link";
+import { useState } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap-icons/font/bootstrap-icons.css";
+import AdminNavbar from "@/app/components/AdminNavbar";
 
-type ReportRow = {
-  month: string;
-  borrow: number;
-  returned: number;
-  overdue: number;
+type BorrowStatus =
+  | "คืนแล้ว"
+  | "กำลังยืม"
+  | "รออนุมัติ"
+  | "ยกเลิก";
+
+type BorrowHistory = {
+  id: number;
+  borrowId: string;
+  equipmentCode: string;
+  equipmentName: string;
+  category: string;
+  borrower: string;
+  department: string;
+  borrowDate: string;
+  returnDate: string;
+  actualReturnDate?: string;
+  purpose: string;
+  status: BorrowStatus;
+  icon: string;
 };
 
-const monthlyData: ReportRow[] = [
+const historyData: BorrowHistory[] = [
   {
-    month: "ม.ค.",
-    borrow: 42,
-    returned: 38,
-    overdue: 4,
-  },
-  {
-    month: "ก.พ.",
-    borrow: 56,
-    returned: 51,
-    overdue: 5,
-  },
-  {
-    month: "มี.ค.",
-    borrow: 68,
-    returned: 61,
-    overdue: 7,
-  },
-  {
-    month: "เม.ย.",
-    borrow: 49,
-    returned: 45,
-    overdue: 4,
-  },
-  {
-    month: "พ.ค.",
-    borrow: 74,
-    returned: 69,
-    overdue: 5,
-  },
-  {
-    month: "มิ.ย.",
-    borrow: 82,
-    returned: 75,
-    overdue: 7,
-  },
-  {
-    month: "ก.ค.",
-    borrow: 91,
-    returned: 84,
-    overdue: 7,
-  },
-  {
-    month: "ส.ค.",
-    borrow: 77,
-    returned: 72,
-    overdue: 5,
-  },
-  {
-    month: "ก.ย.",
-    borrow: 64,
-    returned: 60,
-    overdue: 4,
-  },
-  {
-    month: "ต.ค.",
-    borrow: 70,
-    returned: 65,
-    overdue: 5,
-  },
-  {
-    month: "พ.ย.",
-    borrow: 58,
-    returned: 55,
-    overdue: 3,
-  },
-  {
-    month: "ธ.ค.",
-    borrow: 63,
-    returned: 59,
-    overdue: 4,
-  },
-];
-
-const popularEquipment = [
-  {
-    rank: 1,
-    name: "Canon EOS 90D",
-    category: "กล้องถ่ายภาพ",
-    borrow: 48,
-  },
-  {
-    rank: 2,
-    name: "Sony Alpha A6400",
-    category: "กล้องถ่ายภาพ",
-    borrow: 41,
-  },
-  {
-    rank: 3,
-    name: "MacBook Pro 14",
+    id: 1,
+    borrowId: "BR-2026-001",
+    equipmentCode: "SOC-LAP-001",
+    equipmentName: "Notebook Computer",
     category: "คอมพิวเตอร์",
-    borrow: 36,
+    borrower: "สมชาย ใจดี",
+    department: "ภาควิชาสังคมศาสตร์",
+    borrowDate: "2026-09-01",
+    returnDate: "2026-09-05",
+    actualReturnDate: "2026-09-05",
+    purpose: "ใช้สำหรับการเรียนการสอน",
+    status: "คืนแล้ว",
+    icon: "bi-laptop",
   },
   {
-    rank: 4,
-    name: "Epson EB-X06",
-    category: "โปรเจคเตอร์",
-    borrow: 29,
-  },
-  {
-    rank: 5,
-    name: "iPad Air",
-    category: "แท็บเล็ต",
-    borrow: 25,
-  },
-];
-
-const categoryData = [
-  {
-    name: "กล้องถ่ายภาพ",
-    count: 89,
-  },
-  {
-    name: "คอมพิวเตอร์",
-    count: 72,
-  },
-  {
-    name: "โปรเจคเตอร์",
-    count: 54,
-  },
-  {
-    name: "เครื่องเสียง",
-    count: 38,
-  },
-  {
-    name: "แท็บเล็ต",
-    count: 25,
-  },
-];
-
-const recentTransactions = [
-  {
-    id: "BR-2026-00125",
-    user: "สมชาย ใจดี",
-    equipment: "Canon EOS 90D",
-    borrowDate: "06/09/2026",
-    returnDate: "08/09/2026",
+    id: 2,
+    borrowId: "BR-2026-002",
+    equipmentCode: "SOC-CAM-001",
+    equipmentName: "Digital Camera",
+    category: "อุปกรณ์ถ่ายภาพ",
+    borrower: "กิตติพงษ์ แสงทอง",
+    department: "งานประชาสัมพันธ์",
+    borrowDate: "2026-09-03",
+    returnDate: "2026-09-10",
+    purpose: "ถ่ายภาพกิจกรรมของคณะ",
     status: "กำลังยืม",
+    icon: "bi-camera",
   },
   {
-    id: "BR-2026-00124",
-    user: "กมลชนก แสงดี",
-    equipment: "MacBook Pro 14",
-    borrowDate: "05/09/2026",
-    returnDate: "07/09/2026",
+    id: 3,
+    borrowId: "BR-2026-003",
+    equipmentCode: "SOC-PRO-001",
+    equipmentName: "Projector",
+    category: "อุปกรณ์นำเสนอ",
+    borrower: "นภัสสร วัฒนะ",
+    department: "สำนักงานคณะ",
+    borrowDate: "2026-09-04",
+    returnDate: "2026-09-06",
+    purpose: "ใช้ในการประชุม",
     status: "คืนแล้ว",
+    icon: "bi-projector",
+    actualReturnDate: "2026-09-06",
   },
   {
-    id: "BR-2026-00123",
-    user: "ธนกร ใจบุญ",
-    equipment: "Sony Alpha A6400",
-    borrowDate: "04/09/2026",
-    returnDate: "06/09/2026",
+    id: 4,
+    borrowId: "BR-2026-004",
+    equipmentCode: "SOC-MIC-001",
+    equipmentName: "Wireless Microphone",
+    category: "อุปกรณ์เสียง",
+    borrower: "ธนกร บุญมี",
+    department: "งานกิจการนักศึกษา",
+    borrowDate: "2026-09-05",
+    returnDate: "2026-09-12",
+    purpose: "ใช้สำหรับจัดกิจกรรม",
+    status: "รออนุมัติ",
+    icon: "bi-mic",
+  },
+  {
+    id: 5,
+    borrowId: "BR-2026-005",
+    equipmentCode: "SOC-TAB-001",
+    equipmentName: "Tablet",
+    category: "อุปกรณ์อิเล็กทรอนิกส์",
+    borrower: "พิมพ์ชนก ศรีสุข",
+    department: "ภาควิชาสังคมศาสตร์",
+    borrowDate: "2026-08-20",
+    returnDate: "2026-08-25",
+    actualReturnDate: "2026-08-25",
+    purpose: "ใช้ในการเก็บข้อมูลภาคสนาม",
     status: "คืนแล้ว",
+    icon: "bi-tablet",
   },
   {
-    id: "BR-2026-00122",
-    user: "พิมพ์ชนก สุขใจ",
-    equipment: "Epson EB-X06",
-    borrowDate: "03/09/2026",
-    returnDate: "05/09/2026",
-    status: "เกินกำหนด",
+    id: 6,
+    borrowId: "BR-2026-006",
+    equipmentCode: "SOC-LAP-002",
+    equipmentName: "Notebook Computer",
+    category: "คอมพิวเตอร์",
+    borrower: "อาทิตย์ คำแก้ว",
+    department: "ภาควิชามานุษยวิทยา",
+    borrowDate: "2026-08-15",
+    returnDate: "2026-08-20",
+    purpose: "ใช้ทำงานวิจัย",
+    status: "ยกเลิก",
+    icon: "bi-laptop",
   },
   {
-    id: "BR-2026-00121",
-    user: "อาจารย์วิชัย สมบูรณ์",
-    equipment: "iPad Air",
-    borrowDate: "02/09/2026",
-    returnDate: "04/09/2026",
+    id: 7,
+    borrowId: "BR-2026-007",
+    equipmentCode: "SOC-CAM-002",
+    equipmentName: "Digital Camera",
+    category: "อุปกรณ์ถ่ายภาพ",
+    borrower: "วรพล ทองดี",
+    department: "งานประชาสัมพันธ์",
+    borrowDate: "2026-08-10",
+    returnDate: "2026-08-15",
+    actualReturnDate: "2026-08-14",
+    purpose: "ถ่ายภาพกิจกรรม",
     status: "คืนแล้ว",
+    icon: "bi-camera",
+  },
+  {
+    id: 8,
+    borrowId: "BR-2026-008",
+    equipmentCode: "SOC-PRO-002",
+    equipmentName: "Projector",
+    category: "อุปกรณ์นำเสนอ",
+    borrower: "ศุภชัย มณี",
+    department: "งานวิชาการ",
+    borrowDate: "2026-09-06",
+    returnDate: "2026-09-08",
+    purpose: "นำเสนอผลงานวิจัย",
+    status: "กำลังยืม",
+    icon: "bi-projector",
   },
 ];
 
 export default function AdminReportsPage() {
-  const [period, setPeriod] = useState("ปีนี้");
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("ทั้งหมด");
+  const [sort, setSort] = useState("ล่าสุด");
 
-  const [category, setCategory] =
-    useState("ทุกประเภท");
+  const [selectedHistory, setSelectedHistory] =
+    useState<BorrowHistory | null>(null);
 
-  const [reportType, setReportType] =
-    useState("จำนวนรายการ");
+  const filteredHistory = historyData
+    .filter((item) => {
+      const keyword = search.toLowerCase().trim();
 
-  const filteredData = useMemo(() => {
-    if (period === "6 เดือนล่าสุด") {
-      return monthlyData.slice(-6);
-    }
+      const searchMatch =
+        keyword === "" ||
+        item.borrowId.toLowerCase().includes(keyword) ||
+        item.equipmentCode.toLowerCase().includes(keyword) ||
+        item.equipmentName.toLowerCase().includes(keyword) ||
+        item.borrower.toLowerCase().includes(keyword) ||
+        item.department.toLowerCase().includes(keyword);
 
-    if (period === "3 เดือนล่าสุด") {
-      return monthlyData.slice(-3);
-    }
+      const statusMatch =
+        status === "ทั้งหมด" || item.status === status;
 
-    return monthlyData;
-  }, [period]);
+      return searchMatch && statusMatch;
+    })
+    .sort((a, b) => {
+      if (sort === "ล่าสุด") {
+        return (
+          new Date(b.borrowDate).getTime() -
+          new Date(a.borrowDate).getTime()
+        );
+      }
 
-  const totalBorrow = filteredData.reduce(
-    (sum, item) => sum + item.borrow,
-    0
-  );
+      if (sort === "เก่าสุด") {
+        return (
+          new Date(a.borrowDate).getTime() -
+          new Date(b.borrowDate).getTime()
+        );
+      }
 
-  const totalReturned = filteredData.reduce(
-    (sum, item) => sum + item.returned,
-    0
-  );
+      if (sort === "วันคืนใกล้สุด") {
+        return (
+          new Date(a.returnDate).getTime() -
+          new Date(b.returnDate).getTime()
+        );
+      }
 
-  const totalOverdue = filteredData.reduce(
-    (sum, item) => sum + item.overdue,
-    0
-  );
+      return a.borrowId.localeCompare(b.borrowId);
+    });
 
-  const returnRate =
-    totalBorrow > 0
-      ? Math.round(
-          (totalReturned / totalBorrow) * 100
-        )
-      : 0;
+  const totalCount = historyData.length;
 
-  const maxValue = Math.max(
-    ...filteredData.map((item) => item.borrow)
-  );
+  const returnedCount = historyData.filter(
+    (item) => item.status === "คืนแล้ว"
+  ).length;
 
-  const handleExport = () => {
-    alert(
-      "เตรียมส่งออกข้อมูลรายงานเป็นไฟล์ Excel / PDF"
-    );
+  const borrowingCount = historyData.filter(
+    (item) => item.status === "กำลังยืม"
+  ).length;
+
+  const pendingCount = historyData.filter(
+    (item) => item.status === "รออนุมัติ"
+  ).length;
+
+  const cancelledCount = historyData.filter(
+    (item) => item.status === "ยกเลิก"
+  ).length;
+
+  const resetFilter = () => {
+    setSearch("");
+    setStatus("ทั้งหมด");
+    setSort("ล่าสุด");
   };
 
   return (
     <main className="bg-light min-vh-100">
 
       {/* =====================================================
-          NAVBAR
+          ADMIN NAVBAR
       ===================================================== */}
 
-      <nav className="navbar navbar-expand-lg bg-white border-bottom sticky-top">
+      <AdminNavbar />
+
+      {/* =====================================================
+          MAIN CONTENT
+      ===================================================== */}
+
+<section
+  className="py-4"
+  style={{
+    marginLeft: "250px",
+    minHeight: "100vh",
+  }}
+      >
+
+        {/* =====================================================
+            PAGE HEADER
+        ===================================================== */}
 
         <div className="container-fluid px-4">
 
-          <Link
-            href="/"
-            className="navbar-brand d-flex align-items-center gap-3"
-          >
-
-            <div
-              className="rounded-3 d-flex align-items-center justify-content-center"
-              style={{
-                width: "48px",
-                height: "48px",
-                background: "#6f42c1",
-                color: "#fff",
-              }}
-            >
-              <i className="bi bi-box-seam fs-4"></i>
-            </div>
+          <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
 
             <div>
-              <div className="fw-bold">
-                ระบบยืม–คืนครุภัณฑ์
+
+              <div
+                className="d-flex align-items-center gap-2 mb-2"
+                style={{
+                  color: "#6f42c1",
+                }}
+              >
+
+                <i className="bi bi-bar-chart-line fs-5"></i>
+
+                <span className="fw-semibold">
+                  REPORTS
+                </span>
+
               </div>
 
-              <small className="text-secondary">
-                Admin Panel
-              </small>
-            </div>
+              <h2 className="fw-bold mb-1">
+                รายงานการยืม–คืนครุภัณฑ์
+              </h2>
 
-          </Link>
+              <p className="text-secondary mb-0">
+                ตรวจสอบข้อมูลและสรุปรายการยืม–คืนครุภัณฑ์
+              </p>
 
-
-          <div className="d-flex align-items-center gap-3">
-
-            <div className="text-end d-none d-md-block">
-              <div className="fw-semibold">
-                ผู้ดูแลระบบ
-              </div>
-
-              <small className="text-secondary">
-                Administrator
-              </small>
-            </div>
-
-            <div
-              className="rounded-circle d-flex align-items-center justify-content-center"
-              style={{
-                width: "45px",
-                height: "45px",
-                background: "#eee8ff",
-                color: "#6f42c1",
-              }}
-            >
-              <i className="bi bi-person-fill fs-5"></i>
             </div>
 
           </div>
 
         </div>
 
-      </nav>
+
+        {/* =====================================================
+            SUMMARY CARDS
+        ===================================================== */}
+
+        <div className="row g-3 mb-4">
+
+          <div className="col-12 col-sm-6 col-xl-3">
+
+            <ReportCard
+              icon="bi-list-ul"
+              title="รายการทั้งหมด"
+              number={totalCount}
+              color="#6f42c1"
+            />
+
+          </div>
+
+          <div className="col-12 col-sm-6 col-xl-3">
+
+            <ReportCard
+              icon="bi-check-circle-fill"
+              title="คืนแล้ว"
+              number={returnedCount}
+              color="#198754"
+            />
+
+          </div>
+
+          <div className="col-12 col-sm-6 col-xl-3">
+
+            <ReportCard
+              icon="bi-box-arrow-up-right"
+              title="กำลังยืม"
+              number={borrowingCount}
+              color="#fd7e14"
+            />
+
+          </div>
+
+          <div className="col-12 col-sm-6 col-xl-3">
+
+            <ReportCard
+              icon="bi-hourglass-split"
+              title="รออนุมัติ"
+              number={pendingCount}
+              color="#ffc107"
+            />
+
+          </div>
+
+        </div>
 
 
-      {/* =====================================================
-          LAYOUT
-      ===================================================== */}
+        {/* =====================================================
+            EXTRA SUMMARY
+        ===================================================== */}
 
-      <div className="container-fluid">
+        <div className="row g-3 mb-4">
 
-        <div className="row">
+          <div className="col-md-6">
 
+            <div className="card border-0 shadow-sm rounded-4 h-100">
 
-          {/* =================================================
-              SIDEBAR
-          ================================================= */}
+              <div className="card-body p-4">
 
-          <aside
-            className="col-lg-2 bg-white border-end d-none d-lg-block"
-            style={{
-              minHeight:
-                "calc(100vh - 73px)",
-            }}
-          >
+                <div className="d-flex align-items-center justify-content-between">
 
-            <div className="pt-4">
+                  <div>
 
-              <small className="text-secondary px-3">
-                MENU
-              </small>
+                    <small className="text-secondary">
+                      รายการที่ยกเลิก
+                    </small>
 
+                    <h3 className="fw-bold mb-0 mt-1">
+                      {cancelledCount}
+                    </h3>
 
-              <div className="mt-3">
+                  </div>
 
-                <AdminMenu
-                  href="/dashboard"
-                  icon="bi-speedometer2"
-                  title="Dashboard"
-                />
+                  <div
+                    className="rounded-4 d-flex align-items-center justify-content-center"
+                    style={{
+                      width: "52px",
+                      height: "52px",
+                      background: "#f8d7da",
+                      color: "#b02a37",
+                    }}
+                  >
 
-                <AdminMenu
-                  href="/admin/equipment"
-                  icon="bi-box-seam"
-                  title="จัดการครุภัณฑ์"
-                />
+                    <i className="bi bi-x-circle-fill fs-4"></i>
 
-                <AdminMenu
-                  href="/admin/borrowing"
-                  icon="bi-arrow-left-right"
-                  title="รายการยืม–คืน"
-                />
+                  </div>
 
-                <AdminMenu
-                  href="/admin/users"
-                  icon="bi-people"
-                  title="จัดการผู้ใช้งาน"
-                />
-
-                <AdminMenu
-                  href="/admin/maintenance"
-                  icon="bi-tools"
-                  title="รายการซ่อม"
-                />
-
-                <AdminMenu
-                  href="/admin/reports"
-                  icon="bi-bar-chart-line"
-                  title="รายงานสถิติ"
-                  active
-                />
-
-              </div>
-
-
-              <hr className="my-4" />
-
-
-              <small className="text-secondary px-3">
-                SYSTEM
-              </small>
-
-
-              <div className="mt-3">
-
-                <AdminMenu
-                  href="/"
-                  icon="bi-house"
-                  title="กลับหน้าหลัก"
-                />
+                </div>
 
               </div>
 
             </div>
 
-          </aside>
+          </div>
 
 
-          {/* =================================================
-              MAIN
-          ================================================= */}
+          <div className="col-md-6">
 
-          <section className="col-lg-10 px-3 px-lg-4 py-4">
+            <div className="card border-0 shadow-sm rounded-4 h-100">
 
+              <div className="card-body p-4">
 
-            {/* =================================================
-                HEADER
-            ================================================= */}
+                <div className="d-flex align-items-center justify-content-between">
 
-            <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+                  <div>
 
-              <div>
+                    <small className="text-secondary">
+                      จำนวนรายการที่แสดง
+                    </small>
 
-                <div className="text-secondary small mb-1">
-                  Admin / Reports
+                    <h3 className="fw-bold mb-0 mt-1">
+                      {filteredHistory.length}
+                    </h3>
+
+                  </div>
+
+                  <div
+                    className="rounded-4 d-flex align-items-center justify-content-center"
+                    style={{
+                      width: "52px",
+                      height: "52px",
+                      background: "#eee8ff",
+                      color: "#6f42c1",
+                    }}
+                  >
+
+                    <i className="bi bi-filter-circle fs-4"></i>
+
+                  </div>
+
                 </div>
 
-                <h2 className="fw-bold mb-1">
-                  รายงานสถิติการยืม–คืน
-                </h2>
+              </div>
 
-                <p className="text-secondary mb-0">
-                  วิเคราะห์ข้อมูลการใช้งานครุภัณฑ์ของคณะสังคมศาสตร์
-                </p>
+            </div>
+
+          </div>
+
+        </div>
+
+
+        {/* =====================================================
+            SEARCH & FILTER
+        ===================================================== */}
+
+        <div className="card border-0 shadow-sm rounded-4 mb-4">
+
+          <div className="card-body p-4">
+
+            <div className="d-flex align-items-center gap-2 mb-3">
+
+              <i
+                className="bi bi-funnel-fill"
+                style={{
+                  color: "#6f42c1",
+                }}
+              ></i>
+
+              <h5 className="fw-bold mb-0">
+                ค้นหาและกรองข้อมูล
+              </h5>
+
+            </div>
+
+
+            <div className="row g-3 align-items-end">
+
+              {/* SEARCH */}
+
+              <div className="col-lg-6">
+
+                <label className="form-label fw-semibold">
+                  <i className="bi bi-search me-2"></i>
+                  ค้นหาประวัติ
+                </label>
+
+                <div className="input-group">
+
+                  <span className="input-group-text bg-white">
+                    <i className="bi bi-search"></i>
+                  </span>
+
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="ค้นหารหัสการยืม, ครุภัณฑ์, ผู้ยืม..."
+                    value={search}
+                    onChange={(e) =>
+                      setSearch(e.target.value)
+                    }
+                  />
+
+                  {search && (
+
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary"
+                      onClick={() => setSearch("")}
+                    >
+
+                      <i className="bi bi-x-lg"></i>
+
+                    </button>
+
+                  )}
+
+                </div>
 
               </div>
 
 
+              {/* STATUS */}
+
+              <div className="col-md-6 col-lg-3">
+
+                <label className="form-label fw-semibold">
+
+                  <i className="bi bi-circle me-2"></i>
+
+                  สถานะ
+
+                </label>
+
+                <select
+                  className="form-select"
+                  value={status}
+                  onChange={(e) =>
+                    setStatus(e.target.value)
+                  }
+                >
+
+                  <option value="ทั้งหมด">
+                    ทั้งหมด
+                  </option>
+
+                  <option value="คืนแล้ว">
+                    คืนแล้ว
+                  </option>
+
+                  <option value="กำลังยืม">
+                    กำลังยืม
+                  </option>
+
+                  <option value="รออนุมัติ">
+                    รออนุมัติ
+                  </option>
+
+                  <option value="ยกเลิก">
+                    ยกเลิก
+                  </option>
+
+                </select>
+
+              </div>
+
+
+              {/* SORT */}
+
+              <div className="col-md-6 col-lg-3">
+
+                <label className="form-label fw-semibold">
+
+                  <i className="bi bi-sort-down me-2"></i>
+
+                  เรียงลำดับ
+
+                </label>
+
+                <select
+                  className="form-select"
+                  value={sort}
+                  onChange={(e) =>
+                    setSort(e.target.value)
+                  }
+                >
+
+                  <option value="ล่าสุด">
+                    วันที่ยืมล่าสุด
+                  </option>
+
+                  <option value="เก่าสุด">
+                    วันที่ยืมเก่าสุด
+                  </option>
+
+                  <option value="วันคืนใกล้สุด">
+                    วันคืนใกล้สุด
+                  </option>
+
+                  <option value="รหัส">
+                    รหัสการยืม
+                  </option>
+
+                </select>
+
+              </div>
+
+            </div>
+
+
+            {/* RESET */}
+
+            <div className="mt-3 d-flex justify-content-end">
+
               <button
-                className="btn btn-outline-dark rounded-pill px-4"
-                onClick={handleExport}
+                type="button"
+                className="btn btn-outline-danger rounded-pill px-3"
+                onClick={resetFilter}
               >
 
-                <i className="bi bi-download me-2"></i>
+                <i className="bi bi-arrow-counterclockwise me-2"></i>
 
-                ส่งออกรายงาน
+                ล้างตัวกรอง
 
               </button>
 
             </div>
 
+          </div>
 
-            {/* =================================================
-                FILTER
-            ================================================= */}
-
-            <div className="card border-0 shadow-sm rounded-4 mb-4">
-
-              <div className="card-body p-4">
-
-                <div className="row g-3 align-items-end">
-
-                  <div className="col-md-4">
-
-                    <label className="form-label fw-semibold">
-                      ช่วงเวลา
-                    </label>
-
-                    <select
-                      className="form-select"
-                      value={period}
-                      onChange={(e) =>
-                        setPeriod(
-                          e.target.value
-                        )
-                      }
-                    >
-
-                      <option>
-                        ปีนี้
-                      </option>
-
-                      <option>
-                        6 เดือนล่าสุด
-                      </option>
-
-                      <option>
-                        3 เดือนล่าสุด
-                      </option>
-
-                    </select>
-
-                  </div>
+        </div>
 
 
-                  <div className="col-md-4">
+        {/* =====================================================
+            RESULT TABLE
+        ===================================================== */}
 
-                    <label className="form-label fw-semibold">
-                      ประเภทครุภัณฑ์
-                    </label>
+        <div className="card border-0 shadow-sm rounded-4 overflow-hidden">
 
-                    <select
-                      className="form-select"
-                      value={category}
-                      onChange={(e) =>
-                        setCategory(
-                          e.target.value
-                        )
-                      }
-                    >
+          <div className="card-header bg-white border-0 p-4">
 
-                      <option>
-                        ทุกประเภท
-                      </option>
+            <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">
 
-                      <option>
-                        กล้องถ่ายภาพ
-                      </option>
+              <div>
 
-                      <option>
-                        คอมพิวเตอร์
-                      </option>
+                <h5 className="fw-bold mb-1">
+                  รายงานรายการยืม–คืน
+                </h5>
 
-                      <option>
-                        โปรเจคเตอร์
-                      </option>
+                <span className="text-secondary">
 
-                      <option>
-                        เครื่องเสียง
-                      </option>
+                  พบ{" "}
 
-                      <option>
-                        แท็บเล็ต
-                      </option>
+                  <strong className="text-dark">
+                    {filteredHistory.length}
+                  </strong>{" "}
 
-                    </select>
+                  รายการ
 
-                  </div>
+                </span>
+
+              </div>
 
 
-                  <div className="col-md-4">
+              <div>
 
-                    <label className="form-label fw-semibold">
-                      รูปแบบข้อมูล
-                    </label>
+                <span className="badge rounded-pill bg-light text-dark border px-3 py-2">
 
-                    <select
-                      className="form-select"
-                      value={reportType}
-                      onChange={(e) =>
-                        setReportType(
-                          e.target.value
-                        )
-                      }
-                    >
+                  <i className="bi bi-file-earmark-text me-2"></i>
 
-                      <option>
-                        จำนวนรายการ
-                      </option>
+                  รายงานทั้งหมด
 
-                      <option>
-                        จำนวนผู้ใช้งาน
-                      </option>
-
-                      <option>
-                        ระยะเวลาการยืม
-                      </option>
-
-                    </select>
-
-                  </div>
-
-                </div>
+                </span>
 
               </div>
 
             </div>
 
-
-            {/* =================================================
-                STAT CARDS
-            ================================================= */}
-
-            <div className="row g-3 mb-4">
-
-              <ReportStat
-                title="รายการยืมทั้งหมด"
-                value={totalBorrow.toString()}
-                unit="รายการ"
-                icon="bi-box-arrow-up-right"
-                color="#6f42c1"
-                description="ตามช่วงเวลาที่เลือก"
-              />
-
-              <ReportStat
-                title="คืนแล้ว"
-                value={totalReturned.toString()}
-                unit="รายการ"
-                icon="bi-box-arrow-in-down-left"
-                color="#198754"
-                description={`อัตราการคืน ${returnRate}%`}
-              />
-
-              <ReportStat
-                title="เกินกำหนด"
-                value={totalOverdue.toString()}
-                unit="รายการ"
-                icon="bi-exclamation-circle"
-                color="#dc3545"
-                description="ควรติดตามการคืน"
-              />
-
-              <ReportStat
-                title="กำลังยืม"
-                value="23"
-                unit="รายการ"
-                icon="bi-clock-history"
-                color="#fd7e14"
-                description="รายการที่ยังไม่คืน"
-              />
-
-            </div>
+          </div>
 
 
-            {/* =================================================
-                MAIN CHART
-            ================================================= */}
+          <div className="table-responsive">
 
-            <div className="row g-4 mb-4">
+            <table className="table table-hover align-middle mb-0">
 
-              <div className="col-xl-8">
+              <thead className="table-light">
 
-                <div className="card border-0 shadow-sm rounded-4 h-100">
+                <tr>
 
-                  <div className="card-body p-4">
+                  <th className="px-4 py-3">
+                    รายการ
+                  </th>
 
-                    <div className="d-flex justify-content-between align-items-start mb-4">
+                  <th>
+                    ผู้ยืม
+                  </th>
 
-                      <div>
+                  <th>
+                    วันที่ยืม
+                  </th>
 
-                        <h5 className="fw-bold mb-1">
-                          สถิติการยืม–คืน
-                        </h5>
+                  <th>
+                    กำหนดคืน
+                  </th>
 
-                        <small className="text-secondary">
-                          เปรียบเทียบจำนวนรายการในแต่ละเดือน
-                        </small>
+                  <th>
+                    สถานะ
+                  </th>
 
-                      </div>
+                  <th className="text-end px-4">
+                    รายละเอียด
+                  </th>
 
+                </tr>
 
-                      <div className="d-flex gap-3 small">
-
-                        <span>
-                          <i className="bi bi-circle-fill text-primary me-1"></i>
-                          ยืม
-                        </span>
-
-                        <span>
-                          <i className="bi bi-circle-fill text-success me-1"></i>
-                          คืน
-                        </span>
-
-                        <span>
-                          <i className="bi bi-circle-fill text-danger me-1"></i>
-                          เกินกำหนด
-                        </span>
-
-                      </div>
-
-                    </div>
+              </thead>
 
 
-                    {/* BAR CHART */}
+              <tbody>
 
-                    <div
-                      className="d-flex align-items-end gap-2 gap-md-3"
-                      style={{
-                        height: "300px",
-                      }}
-                    >
+                {filteredHistory.map((item) => (
 
-                      {filteredData.map(
-                        (item) => {
+                  <tr key={item.id}>
 
-                          const borrowHeight =
-                            (item.borrow /
-                              maxValue) *
-                            220;
+                    {/* EQUIPMENT */}
 
-                          const returnedHeight =
-                            (item.returned /
-                              maxValue) *
-                            220;
+                    <td className="px-4">
 
-                          const overdueHeight =
-                            (item.overdue /
-                              maxValue) *
-                            220;
-
-                          return (
-
-                            <div
-                              key={item.month}
-                              className="flex-grow-1 h-100 d-flex flex-column justify-content-end"
-                            >
-
-                              <div className="d-flex align-items-end justify-content-center gap-1 h-100">
-
-                                <div
-                                  className="rounded-top bg-primary"
-                                  style={{
-                                    width: "30%",
-                                    maxWidth:
-                                      "24px",
-                                    height:
-                                      `${borrowHeight}px`,
-                                  }}
-                                  title={`ยืม ${item.borrow}`}
-                                ></div>
-
-                                <div
-                                  className="rounded-top bg-success"
-                                  style={{
-                                    width: "30%",
-                                    maxWidth:
-                                      "24px",
-                                    height:
-                                      `${returnedHeight}px`,
-                                  }}
-                                  title={`คืน ${item.returned}`}
-                                ></div>
-
-                                <div
-                                  className="rounded-top bg-danger"
-                                  style={{
-                                    width: "20%",
-                                    maxWidth:
-                                      "16px",
-                                    height:
-                                      `${overdueHeight}px`,
-                                  }}
-                                  title={`เกินกำหนด ${item.overdue}`}
-                                ></div>
-
-                              </div>
-
-
-                              <div className="text-center small text-secondary mt-2">
-                                {item.month}
-                              </div>
-
-                            </div>
-
-                          );
-
-                        }
-                      )}
-
-                    </div>
-
-                  </div>
-
-                </div>
-
-              </div>
-
-
-              {/* =================================================
-                  RETURN RATE
-              ================================================= */}
-
-              <div className="col-xl-4">
-
-                <div className="card border-0 shadow-sm rounded-4 h-100">
-
-                  <div className="card-body p-4">
-
-                    <h5 className="fw-bold mb-1">
-                      อัตราการคืนครุภัณฑ์
-                    </h5>
-
-                    <small className="text-secondary">
-                      เปรียบเทียบรายการยืมและคืน
-                    </small>
-
-
-                    <div className="text-center py-4">
-
-                      <div
-                        className="mx-auto rounded-circle d-flex align-items-center justify-content-center"
-                        style={{
-                          width: "170px",
-                          height: "170px",
-                          background:
-                            `conic-gradient(#198754 ${returnRate}%, #e9ecef 0)`,
-                        }}
-                      >
+                      <div className="d-flex align-items-center gap-3">
 
                         <div
-                          className="rounded-circle bg-white d-flex flex-column align-items-center justify-content-center"
+                          className="d-flex align-items-center justify-content-center rounded-3 flex-shrink-0"
                           style={{
-                            width: "135px",
-                            height: "135px",
+                            width: "52px",
+                            height: "52px",
+                            background: "#eee8ff",
+                            color: "#6f42c1",
                           }}
                         >
 
-                          <strong
-                            className="display-5 fw-bold text-success"
-                          >
-                            {returnRate}%
-                          </strong>
+                          <i
+                            className={item.icon}
+                            style={{
+                              fontSize: "24px",
+                            }}
+                          ></i>
+
+                        </div>
+
+
+                        <div>
+
+                          <div className="fw-semibold">
+                            {item.equipmentName}
+                          </div>
 
                           <small className="text-secondary">
-                            อัตราการคืน
+                            {item.equipmentCode}
+                          </small>
+
+                          <br />
+
+                          <small className="text-secondary">
+                            {item.borrowId}
                           </small>
 
                         </div>
 
                       </div>
 
-                    </div>
+                    </td>
 
 
-                    <div className="d-flex justify-content-between border-top pt-3">
+                    {/* BORROWER */}
 
-                      <div>
+                    <td>
 
-                        <small className="text-secondary d-block">
-                          ยืมทั้งหมด
-                        </small>
-
-                        <strong>
-                          {totalBorrow}
-                        </strong>
-
+                      <div className="fw-semibold">
+                        {item.borrower}
                       </div>
 
+                      <small className="text-secondary">
+                        {item.department}
+                      </small>
 
-                      <div className="text-end">
+                    </td>
 
-                        <small className="text-secondary d-block">
-                          คืนแล้ว
-                        </small>
 
-                        <strong className="text-success">
-                          {totalReturned}
-                        </strong>
+                    {/* BORROW DATE */}
 
+                    <td>
+
+                      <div className="fw-semibold">
+                        {formatDate(item.borrowDate)}
                       </div>
 
-                    </div>
-
-                  </div>
-
-                </div>
-
-              </div>
-
-            </div>
+                    </td>
 
 
-            {/* =================================================
-                POPULAR EQUIPMENT + CATEGORY
-            ================================================= */}
+                    {/* RETURN DATE */}
 
-            <div className="row g-4 mb-4">
+                    <td>
 
-
-              {/* POPULAR */}
-
-              <div className="col-xl-7">
-
-                <div className="card border-0 shadow-sm rounded-4">
-
-                  <div className="card-body p-4">
-
-                    <div className="d-flex justify-content-between align-items-center mb-4">
-
-                      <div>
-
-                        <h5 className="fw-bold mb-1">
-                          ครุภัณฑ์ที่ถูกยืมบ่อย
-                        </h5>
-
-                        <small className="text-secondary">
-                          5 อันดับแรก
-                        </small>
-
+                      <div className="fw-semibold">
+                        {formatDate(item.returnDate)}
                       </div>
 
-                      <i className="bi bi-trophy fs-4 text-warning"></i>
+                      {item.actualReturnDate && (
 
-                    </div>
+                        <small className="text-success">
 
+                          คืนจริง{" "}
 
-                    {popularEquipment.map(
-                      (item) => (
+                          {formatDate(
+                            item.actualReturnDate
+                          )}
 
-                        <div
-                          key={item.rank}
-                          className="d-flex align-items-center gap-3 py-3 border-bottom"
-                        >
+                        </small>
 
-                          <div
-                            className="rounded-3 d-flex align-items-center justify-content-center fw-bold"
-                            style={{
-                              width: "40px",
-                              height: "40px",
-                              background:
-                                item.rank === 1
-                                  ? "#fff3cd"
-                                  : "#f8f9fa",
-                              color:
-                                item.rank === 1
-                                  ? "#997404"
-                                  : "#6c757d",
-                            }}
-                          >
-                            {item.rank}
-                          </div>
+                      )}
+
+                    </td>
 
 
-                          <div
-                            className="rounded-3 d-flex align-items-center justify-content-center"
-                            style={{
-                              width: "45px",
-                              height: "45px",
-                              background:
-                                "#eee8ff",
-                              color:
-                                "#6f42c1",
-                            }}
-                          >
-                            <i className="bi bi-camera fs-5"></i>
-                          </div>
+                    {/* STATUS */}
+
+                    <td>
+
+                      <HistoryStatusBadge
+                        status={item.status}
+                      />
+
+                    </td>
 
 
-                          <div className="flex-grow-1">
+                    {/* DETAIL */}
 
-                            <div className="fw-semibold">
-                              {item.name}
-                            </div>
+                    <td className="text-end px-4">
 
-                            <small className="text-secondary">
-                              {item.category}
-                            </small>
-
-                          </div>
-
-
-                          <div className="text-end">
-
-                            <strong>
-                              {item.borrow}
-                            </strong>
-
-                            <small className="text-secondary ms-1">
-                              ครั้ง
-                            </small>
-
-                          </div>
-
-                        </div>
-
-                      )
-                    )}
-
-                  </div>
-
-                </div>
-
-              </div>
-
-
-              {/* CATEGORY */}
-
-              <div className="col-xl-5">
-
-                <div className="card border-0 shadow-sm rounded-4">
-
-                  <div className="card-body p-4">
-
-                    <h5 className="fw-bold mb-1">
-                      สถิติแยกตามประเภท
-                    </h5>
-
-                    <small className="text-secondary">
-                      จำนวนการยืมตามประเภทครุภัณฑ์
-                    </small>
-
-
-                    <div className="mt-4">
-
-                      {categoryData.map(
-                        (item) => {
-
-                          const percentage =
-                            Math.round(
-                              (item.count /
-                                89) *
-                                100
-                            );
-
-                          return (
-
-                            <div
-                              key={item.name}
-                              className="mb-4"
-                            >
-
-                              <div className="d-flex justify-content-between mb-2">
-
-                                <span className="small fw-semibold">
-                                  {item.name}
-                                </span>
-
-                                <span className="small text-secondary">
-                                  {item.count} ครั้ง
-                                </span>
-
-                              </div>
-
-
-                              <div
-                                className="progress"
-                                style={{
-                                  height: "8px",
-                                }}
-                              >
-
-                                <div
-                                  className="progress-bar"
-                                  style={{
-                                    width:
-                                      `${percentage}%`,
-                                  }}
-                                ></div>
-
-                              </div>
-
-                            </div>
-
-                          );
-
+                      <button
+                        type="button"
+                        className="btn btn-outline-dark btn-sm rounded-pill px-3"
+                        onClick={() =>
+                          setSelectedHistory(item)
                         }
-                      )}
+                      >
 
-                    </div>
+                        <i className="bi bi-eye me-1"></i>
 
-                  </div>
+                        ดูรายละเอียด
 
-                </div>
+                      </button>
 
-              </div>
+                    </td>
 
-            </div>
+                  </tr>
 
+                ))}
 
-            {/* =================================================
-                RECENT TRANSACTIONS
-            ================================================= */}
+              </tbody>
 
-            <div className="card border-0 shadow-sm rounded-4">
+            </table>
 
-              <div className="card-body p-4">
-
-                <div className="d-flex justify-content-between align-items-center mb-4">
-
-                  <div>
-
-                    <h5 className="fw-bold mb-1">
-                      รายการยืม–คืนล่าสุด
-                    </h5>
-
-                    <small className="text-secondary">
-                      รายการล่าสุดของระบบ
-                    </small>
-
-                  </div>
+          </div>
 
 
-                  <Link
-                    href="/admin/borrowing"
-                    className="btn btn-light rounded-pill px-3"
-                  >
-                    ดูทั้งหมด
-                    <i className="bi bi-arrow-right ms-2"></i>
-                  </Link>
+          {/* EMPTY */}
 
-                </div>
+          {filteredHistory.length === 0 && (
 
+            <div className="text-center py-5">
 
-                <div className="table-responsive">
+              <div
+                className="mx-auto mb-3 d-flex align-items-center justify-content-center rounded-circle"
+                style={{
+                  width: "90px",
+                  height: "90px",
+                  background: "#eee8ff",
+                  color: "#6f42c1",
+                }}
+              >
 
-                  <table className="table align-middle">
-
-                    <thead>
-
-                      <tr className="text-secondary">
-
-                        <th>
-                          เลขรายการ
-                        </th>
-
-                        <th>
-                          ผู้ยืม
-                        </th>
-
-                        <th>
-                          ครุภัณฑ์
-                        </th>
-
-                        <th>
-                          วันที่ยืม
-                        </th>
-
-                        <th>
-                          กำหนดคืน
-                        </th>
-
-                        <th>
-                          สถานะ
-                        </th>
-
-                      </tr>
-
-                    </thead>
-
-
-                    <tbody>
-
-                      {recentTransactions.map(
-                        (item) => (
-
-                          <tr key={item.id}>
-
-                            <td>
-                              <span className="fw-semibold">
-                                {item.id}
-                              </span>
-                            </td>
-
-
-                            <td>
-                              {item.user}
-                            </td>
-
-
-                            <td>
-
-                              <div className="d-flex align-items-center gap-2">
-
-                                <div
-                                  className="rounded-2 d-flex align-items-center justify-content-center"
-                                  style={{
-                                    width: "35px",
-                                    height: "35px",
-                                    background:
-                                      "#f1eef6",
-                                    color:
-                                      "#6f42c1",
-                                  }}
-                                >
-
-                                  <i className="bi bi-box-seam"></i>
-
-                                </div>
-
-                                <span>
-                                  {item.equipment}
-                                </span>
-
-                              </div>
-
-                            </td>
-
-
-                            <td>
-                              {item.borrowDate}
-                            </td>
-
-
-                            <td>
-                              {item.returnDate}
-                            </td>
-
-
-                            <td>
-
-                              <StatusBadge
-                                status={
-                                  item.status
-                                }
-                              />
-
-                            </td>
-
-                          </tr>
-
-                        )
-                      )}
-
-                    </tbody>
-
-                  </table>
-
-                </div>
+                <i className="bi bi-file-earmark-x fs-1"></i>
 
               </div>
 
-            </div>
+
+              <h5 className="fw-bold">
+                ไม่พบข้อมูลรายงาน
+              </h5>
 
 
-            {/* =================================================
-                FOOTER NOTE
-            ================================================= */}
-
-            <div className="mt-4">
-
-              <div className="alert alert-light border rounded-4">
-
-                <div className="d-flex gap-3">
-
-                  <i className="bi bi-info-circle text-primary fs-5"></i>
-
-                  <div>
-
-                    <div className="fw-semibold">
-                      หมายเหตุ
-                    </div>
-
-                    <small className="text-secondary">
-                      ข้อมูลในหน้านี้เป็นข้อมูลตัวอย่าง
-                      เมื่อเชื่อมต่อฐานข้อมูลจริง
-                      ระบบสามารถคำนวณสถิติจากรายการยืม–คืนแบบอัตโนมัติได้
-                    </small>
-
-                  </div>
-
-                </div>
-
-              </div>
+              <p className="text-secondary mb-0">
+                ลองเปลี่ยนคำค้นหาหรือเงื่อนไขตัวกรอง
+              </p>
 
             </div>
 
-          </section>
+          )}
 
         </div>
 
-      </div>
+      </section>
+
+
+      {/* =====================================================
+          DETAIL MODAL
+      ===================================================== */}
+
+      {selectedHistory && (
+
+        <div
+          className="modal fade show d-block"
+          role="dialog"
+          aria-modal="true"
+          style={{
+            backgroundColor: "rgba(0, 0, 0, 0.6)",
+          }}
+          onClick={() =>
+            setSelectedHistory(null)
+          }
+        >
+
+          <div
+            className="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable"
+            onClick={(e) =>
+              e.stopPropagation()
+            }
+          >
+
+            <div className="modal-content border-0 rounded-4 overflow-hidden shadow-lg">
+
+              {/* MODAL HEADER */}
+
+              <div
+                className="position-relative d-flex align-items-center justify-content-center"
+                style={{
+                  height: "190px",
+                  background:
+                    "linear-gradient(135deg,#f4f0fa,#eee8ff)",
+                  color: "#6f42c1",
+                }}
+              >
+
+                <i
+                  className={selectedHistory.icon}
+                  style={{
+                    fontSize: "80px",
+                  }}
+                ></i>
+
+
+                <button
+                  type="button"
+                  className="btn-close position-absolute top-0 end-0 m-3 bg-white rounded-circle p-2"
+                  aria-label="ปิด"
+                  onClick={() =>
+                    setSelectedHistory(null)
+                  }
+                ></button>
+
+
+                <div className="position-absolute bottom-0 start-50 translate-middle-x mb-3">
+
+                  <HistoryStatusBadge
+                    status={
+                      selectedHistory.status
+                    }
+                  />
+
+                </div>
+
+              </div>
+
+
+              {/* MODAL BODY */}
+
+              <div className="modal-body p-4 p-lg-5">
+
+                <div className="text-center mb-4">
+
+                  <small
+                    className="fw-bold"
+                    style={{
+                      color: "#6f42c1",
+                    }}
+                  >
+
+                    {selectedHistory.borrowId}
+
+                  </small>
+
+
+                  <h3 className="fw-bold mt-2 mb-1">
+
+                    {selectedHistory.equipmentName}
+
+                  </h3>
+
+
+                  <p className="text-secondary mb-0">
+
+                    {selectedHistory.equipmentCode}
+
+                  </p>
+
+                </div>
+
+
+                <div className="row g-3">
+
+                  <DetailBox
+                    icon="bi-person"
+                    title="ผู้ยืม"
+                    value={
+                      selectedHistory.borrower
+                    }
+                  />
+
+
+                  <DetailBox
+                    icon="bi-building"
+                    title="หน่วยงาน"
+                    value={
+                      selectedHistory.department
+                    }
+                  />
+
+
+                  <DetailBox
+                    icon="bi-calendar-check"
+                    title="วันที่ยืม"
+                    value={formatDate(
+                      selectedHistory.borrowDate
+                    )}
+                  />
+
+
+                  <DetailBox
+                    icon="bi-calendar-event"
+                    title="กำหนดคืน"
+                    value={formatDate(
+                      selectedHistory.returnDate
+                    )}
+                  />
+
+
+                  <DetailBox
+                    icon="bi-tag"
+                    title="ประเภทครุภัณฑ์"
+                    value={
+                      selectedHistory.category
+                    }
+                  />
+
+
+                  <DetailBox
+                    icon="bi-circle"
+                    title="สถานะ"
+                    value={
+                      selectedHistory.status
+                    }
+                  />
+
+                </div>
+
+
+                {/* PURPOSE */}
+
+                <div className="mt-4">
+
+                  <div className="bg-light rounded-4 p-4">
+
+                    <div className="d-flex gap-3">
+
+                      <div
+                        className="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
+                        style={{
+                          width: "45px",
+                          height: "45px",
+                          background: "#eee8ff",
+                          color: "#6f42c1",
+                        }}
+                      >
+
+                        <i className="bi bi-chat-left-text"></i>
+
+                      </div>
+
+
+                      <div>
+
+                        <small className="text-secondary">
+                          วัตถุประสงค์ในการยืม
+                        </small>
+
+
+                        <div className="fw-semibold mt-1">
+
+                          {selectedHistory.purpose}
+
+                        </div>
+
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                </div>
+
+
+                {/* ACTUAL RETURN */}
+
+                {selectedHistory.actualReturnDate && (
+
+                  <div className="alert alert-success border-0 rounded-4 mt-3 mb-0">
+
+                    <i className="bi bi-check-circle-fill me-2"></i>
+
+                    ครุภัณฑ์ถูกคืนแล้วเมื่อ{" "}
+
+                    <strong>
+
+                      {formatDate(
+                        selectedHistory.actualReturnDate
+                      )}
+
+                    </strong>
+
+                  </div>
+
+                )}
+
+              </div>
+
+
+              {/* MODAL FOOTER */}
+
+              <div className="modal-footer border-0 px-4 px-lg-5 pb-4">
+
+                <button
+                  type="button"
+                  className="btn btn-light rounded-pill px-4"
+                  onClick={() =>
+                    setSelectedHistory(null)
+                  }
+                >
+
+                  ปิด
+
+                </button>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      )}
 
     </main>
   );
 }
 
 
-/* =========================================================
-   ADMIN MENU
-========================================================= */
+/* =====================================================
+   REPORT CARD
+===================================================== */
 
-function AdminMenu({
-  href,
+function ReportCard({
   icon,
   title,
-  active = false,
-}: {
-  href: string;
-  icon: string;
-  title: string;
-  active?: boolean;
-}) {
-  return (
-    <Link
-      href={href}
-      className={`d-flex align-items-center gap-3 mx-2 px-3 py-3 rounded-3 text-decoration-none ${
-        active
-          ? "text-white"
-          : "text-secondary"
-      }`}
-      style={
-        active
-          ? {
-              background: "#6f42c1",
-            }
-          : undefined
-      }
-    >
-      <i className={`${icon} fs-5`}></i>
-
-      <span className="fw-medium">
-        {title}
-      </span>
-    </Link>
-  );
-}
-
-
-/* =========================================================
-   REPORT STAT
-========================================================= */
-
-function ReportStat({
-  title,
-  value,
-  unit,
-  icon,
+  number,
   color,
-  description,
 }: {
-  title: string;
-  value: string;
-  unit: string;
   icon: string;
+  title: string;
+  number: number;
   color: string;
-  description: string;
 }) {
+
   return (
-    <div className="col-sm-6 col-xl-3">
 
-      <div className="card border-0 shadow-sm rounded-4 h-100">
+    <div className="card border-0 shadow-sm rounded-4 h-100">
 
-        <div className="card-body p-4">
+      <div className="card-body p-4">
 
-          <div className="d-flex align-items-start justify-content-between">
+        <div className="d-flex align-items-center justify-content-between">
 
-            <div>
+          <div>
 
-              <small className="text-secondary d-block mb-2">
-                {title}
-              </small>
+            <small className="text-secondary">
+              {title}
+            </small>
 
-              <div className="d-flex align-items-baseline gap-2">
-
-                <strong className="display-6 fw-bold">
-                  {value}
-                </strong>
-
-                <small className="text-secondary">
-                  {unit}
-                </small>
-
-              </div>
-
-            </div>
-
-
-            <div
-              className="rounded-3 d-flex align-items-center justify-content-center"
-              style={{
-                width: "50px",
-                height: "50px",
-                background: `${color}15`,
-                color,
-              }}
-            >
-              <i className={`${icon} fs-5`}></i>
+            <div className="fs-2 fw-bold mt-1">
+              {number}
             </div>
 
           </div>
 
 
-          <small className="text-secondary">
-            <i className="bi bi-info-circle me-1"></i>
-            {description}
-          </small>
+          <div
+            className="rounded-4 d-flex align-items-center justify-content-center"
+            style={{
+              width: "52px",
+              height: "52px",
+              background: `${color}15`,
+              color: color,
+            }}
+          >
+
+            <i className={`${icon} fs-4`}></i>
+
+          </div>
 
         </div>
 
       </div>
 
     </div>
+
   );
 }
 
 
-/* =========================================================
+/* =====================================================
    STATUS BADGE
-========================================================= */
+===================================================== */
 
-function StatusBadge({
+function HistoryStatusBadge({
   status,
 }: {
-  status: string;
+  status: BorrowStatus;
 }) {
 
-  const config: Record<
-    string,
-    {
-      className: string;
-      icon: string;
-    }
-  > = {
-    "กำลังยืม": {
-      className:
-        "bg-warning-subtle text-warning-emphasis",
-      icon: "bi-clock",
-    },
+  const config = {
 
     "คืนแล้ว": {
-      className:
-        "bg-success-subtle text-success",
-      icon: "bi-check-circle",
+      background: "#d1e7dd",
+      color: "#146c43",
+      icon: "bi-check-circle-fill",
     },
 
-    "เกินกำหนด": {
-      className:
-        "bg-danger-subtle text-danger",
-      icon: "bi-exclamation-circle",
+    "กำลังยืม": {
+      background: "#fff3cd",
+      color: "#997404",
+      icon: "bi-box-arrow-up-right",
     },
+
+    "รออนุมัติ": {
+      background: "#cff4fc",
+      color: "#087990",
+      icon: "bi-hourglass-split",
+    },
+
+    "ยกเลิก": {
+      background: "#f8d7da",
+      color: "#b02a37",
+      icon: "bi-x-circle-fill",
+    },
+
   };
 
-  const current =
-    config[status] ?? {
-      className:
-        "bg-secondary-subtle text-secondary",
-      icon: "bi-circle",
-    };
+  const current = config[status];
 
   return (
+
     <span
-      className={`badge rounded-pill px-3 py-2 ${current.className}`}
+      className="badge rounded-pill"
+      style={{
+        background: current.background,
+        color: current.color,
+        padding: "8px 13px",
+      }}
     >
 
       <i
@@ -1427,6 +1263,84 @@ function StatusBadge({
       {status}
 
     </span>
+
   );
 }
 
+
+/* =====================================================
+   DETAIL BOX
+===================================================== */
+
+function DetailBox({
+  icon,
+  title,
+  value,
+}: {
+  icon: string;
+  title: string;
+  value: string;
+}) {
+
+  return (
+
+    <div className="col-md-6">
+
+      <div className="bg-light rounded-4 p-3 h-100">
+
+        <div className="d-flex gap-3">
+
+          <div
+            className="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
+            style={{
+              width: "45px",
+              height: "45px",
+              background: "#eee8ff",
+              color: "#6f42c1",
+            }}
+          >
+
+            <i className={icon}></i>
+
+          </div>
+
+
+          <div>
+
+            <small className="text-secondary">
+              {title}
+            </small>
+
+
+            <div className="fw-semibold mt-1">
+              {value}
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  );
+}
+
+
+/* =====================================================
+   DATE FORMAT
+===================================================== */
+
+function formatDate(date: string) {
+
+  return new Date(date).toLocaleDateString(
+    "th-TH",
+    {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    }
+  );
+
+}

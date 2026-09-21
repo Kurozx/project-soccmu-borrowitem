@@ -1,300 +1,150 @@
 "use client";
 
-import Link from "next/link";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap-icons/font/bootstrap-icons.css";
 
-export default function DashboardPage() {
+import AdminNavbar from "@/app/components/AdminNavbar";
+
+export default function DashboardClient() {
   return (
     <main className="bg-light min-vh-100">
 
       {/* =====================================================
-          NAVBAR
+          ADMIN NAVBAR
       ===================================================== */}
 
-      <nav className="navbar navbar-expand-lg bg-white border-bottom sticky-top">
-        <div className="container py-2">
-
-          <Link
-            href="/"
-            className="navbar-brand d-flex align-items-center gap-3"
-          >
-            <div
-              className="d-flex align-items-center justify-content-center rounded-3"
-              style={{
-                width: "48px",
-                height: "48px",
-                background: "#6f42c1",
-                color: "white",
-              }}
-            >
-              <i className="bi bi-box-seam fs-4"></i>
-            </div>
-
-            <div>
-              <div className="fw-bold text-dark">
-                ระบบยืม–คืนครุภัณฑ์
-              </div>
-
-              <small className="text-secondary">
-                คณะสังคมศาสตร์ มหาวิทยาลัยเชียงใหม่
-              </small>
-            </div>
-          </Link>
-
-
-          <button
-            className="navbar-toggler"
-            type="button"
-            data-bs-toggle="collapse"
-            data-bs-target="#navbarMenu"
-          >
-            <span className="navbar-toggler-icon"></span>
-          </button>
-
-
-          <div
-            className="collapse navbar-collapse"
-            id="navbarMenu"
-          >
-            <ul className="navbar-nav ms-auto align-items-lg-center gap-lg-2">
-
-              <li className="nav-item">
-                <Link
-                  href="/"
-                  className="nav-link"
-                >
-                  <i className="bi bi-house me-1"></i>
-                  หน้าหลัก
-                </Link>
-              </li>
-
-
-              <li className="nav-item">
-                <Link
-                  href="/equipment"
-                  className="nav-link"
-                >
-                  <i className="bi bi-box me-1"></i>
-                  ครุภัณฑ์
-                </Link>
-              </li>
-
-
-              <li className="nav-item">
-                <Link
-                  href="/search"
-                  className="nav-link"
-                >
-                  <i className="bi bi-search me-1"></i>
-                  ค้นหา
-                </Link>
-              </li>
-
-
-              <li className="nav-item">
-                <Link
-                  href="/history"
-                  className="nav-link"
-                >
-                  <i className="bi bi-clock-history me-1"></i>
-                  ประวัติ
-                </Link>
-              </li>
-
-
-              <li className="nav-item">
-                <Link
-                  href="/borrowing"
-                  className="nav-link"
-                >
-                  <i className="bi bi-box-arrow-up-right me-1"></i>
-                  กำลังยืม
-                </Link>
-              </li>
-
-
-              <li className="nav-item">
-                <Link
-                  href="/dashboard"
-                  className="nav-link active fw-semibold"
-                >
-                  <i className="bi bi-speedometer2 me-1"></i>
-                  Dashboard
-                </Link>
-              </li>
-
-
-              <li className="nav-item ms-lg-2">
-                <Link
-                  href="/profile"
-                  className="btn rounded-pill px-4 text-white"
-                  style={{
-                    background: "#6f42c1",
-                  }}
-                >
-                  <i className="bi bi-person-circle me-2"></i>
-                  โปรไฟล์
-                </Link>
-              </li>
-
-            </ul>
-          </div>
-
-        </div>
-      </nav>
+      <AdminNavbar />
 
 
       {/* =====================================================
-          DASHBOARD HEADER
+          DASHBOARD CONTENT
       ===================================================== */}
 
       <section
-        className="py-5"
+        className="admin-page-content"
         style={{
-          background:
-            "linear-gradient(135deg, #f5f0ff 0%, #ffffff 60%, #eee8ff 100%)",
+          paddingTop: "98px",
         }}
       >
-        <div className="container">
 
-          <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-4">
+        {/* =====================================================
+            HEADER
+        ===================================================== */}
 
-            <div>
+        <section
+          className="dashboard-header rounded-4 overflow-hidden mb-4"
+          style={{
+            background:
+              "linear-gradient(135deg, #f3edff 0%, #ffffff 55%, #eee8ff 100%)",
+          }}
+        >
+          <div className="container-fluid px-4 py-4">
 
-              <span className="badge rounded-pill bg-white border text-primary px-3 py-2 mb-3">
+            <div className="d-flex justify-content-between align-items-center">
 
-                <i className="bi bi-speedometer2 me-2"></i>
+              {/* TITLE */}
 
-                DASHBOARD
+              <div>
+                <h2 className="fw-bold mb-1">
+                  Dashboard สรุปข้อมูล
+                </h2>
 
-              </span>
-
-
-              <h1 className="fw-bold display-6 mb-2">
-                Dashboard สรุปข้อมูล
-              </h1>
-
-
-              <p className="text-secondary mb-0">
-                ภาพรวมข้อมูลการยืม–คืนครุภัณฑ์
-                คณะสังคมศาสตร์ มหาวิทยาลัยเชียงใหม่
-              </p>
-
-            </div>
+                <p className="text-secondary mb-0">
+                  ภาพรวมระบบยืม–คืนครุภัณฑ์
+                </p>
+              </div>
 
 
-            <div className="bg-white shadow-sm rounded-4 p-3">
+              {/* DATE */}
 
-              <div className="d-flex align-items-center gap-3">
+              <div className="d-none d-md-block">
+                <div className="bg-white rounded-3 shadow-sm px-3 py-2">
 
-                <div
-                  className="rounded-3 d-flex align-items-center justify-content-center"
-                  style={{
-                    width: "48px",
-                    height: "48px",
-                    background: "#eee8ff",
-                    color: "#6f42c1",
-                  }}
-                >
-                  <i className="bi bi-calendar3 fs-5"></i>
-                </div>
-
-                <div>
                   <small className="text-secondary d-block">
-                    ข้อมูล ณ วันที่
+                    วันนี้
                   </small>
 
                   <strong>
-                    7 กันยายน 2026
+                    19 กันยายน 2569
                   </strong>
-                </div>
 
+                </div>
               </div>
 
             </div>
 
           </div>
-
-        </div>
-      </section>
+        </section>
 
 
-      {/* =====================================================
-          MAIN DASHBOARD
-      ===================================================== */}
+        {/* =====================================================
+            MAIN CONTENT
+        ===================================================== */}
 
-      <section className="py-4 pb-5">
-
-        <div className="container">
+        <div className="container-fluid px-0">
 
 
-          {/* =================================================
+          {/* =====================================================
               STAT CARDS
-          ================================================= */}
+          ===================================================== */}
 
           <div className="row g-4 mb-4">
 
-            <DashboardStat
-              icon="bi-box-seam"
+            <StatCard
               title="ครุภัณฑ์ทั้งหมด"
-              number="248"
-              description="รายการ"
-              iconBg="#eee8ff"
+              value="248"
+              subtitle="รายการ"
+              icon="bi-box-seam"
               iconColor="#6f42c1"
-              trend="+12"
-              trendText="จากเดือนที่แล้ว"
+              iconBg="#eee8ff"
+              badge="+12"
             />
 
-
-            <DashboardStat
-              icon="bi-check-circle-fill"
+            <StatCard
               title="พร้อมใช้งาน"
-              number="186"
-              description="รายการ"
-              iconBg="#d1e7dd"
+              value="186"
+              subtitle="รายการ"
+              icon="bi-check-circle"
               iconColor="#198754"
-              trend="+8"
-              trendText="จากเดือนที่แล้ว"
+              iconBg="#d1e7dd"
+              badge="+8"
             />
 
-
-            <DashboardStat
-              icon="bi-box-arrow-up-right"
+            <StatCard
               title="กำลังถูกยืม"
-              number="42"
-              description="รายการ"
-              iconBg="#fff3cd"
+              value="42"
+              subtitle="รายการ"
+              icon="bi-arrow-up-right-circle"
               iconColor="#997404"
-              trend="+5"
-              trendText="จากเดือนที่แล้ว"
+              iconBg="#fff3cd"
+              badge="+5"
             />
 
-
-            <DashboardStat
-              icon="bi-tools"
+            <StatCard
               title="กำลังซ่อม"
-              number="20"
-              description="รายการ"
-              iconBg="#f8d7da"
+              value="20"
+              subtitle="รายการ"
+              icon="bi-tools"
               iconColor="#dc3545"
-              trend="-3"
-              trendText="จากเดือนที่แล้ว"
+              iconBg="#f8d7da"
+              badge="-3"
             />
 
           </div>
 
 
-          {/* =================================================
-              SECOND ROW
-          ================================================= */}
+          {/* =====================================================
+              CHART + RECENT ACTIVITY
+          ===================================================== */}
 
           <div className="row g-4 mb-4">
 
 
-            {/* MONTHLY BORROW */}
+            {/* =================================================
+                BORROW / RETURN CHART
+            ================================================= */}
 
-            <div className="col-lg-8">
+            <div className="col-xl-8">
 
               <div className="card border-0 shadow-sm rounded-4 h-100">
 
@@ -303,7 +153,6 @@ export default function DashboardPage() {
                   <div className="d-flex justify-content-between align-items-center mb-4">
 
                     <div>
-
                       <h5 className="fw-bold mb-1">
                         สถิติการยืม–คืน
                       </h5>
@@ -311,93 +160,95 @@ export default function DashboardPage() {
                       <small className="text-secondary">
                         จำนวนรายการยืมและคืนในแต่ละเดือน
                       </small>
-
                     </div>
 
-
                     <select
-                      className="form-select form-select-sm rounded-pill"
+                      className="form-select form-select-sm"
                       style={{
-                        width: "130px",
+                        width: "120px",
                       }}
-                      defaultValue="2026"
+                      defaultValue="2569"
                     >
-                      <option value="2026">
-                        ปี 2026
+                      <option value="2569">
+                        ปี 2569
                       </option>
 
-                      <option value="2025">
-                        ปี 2025
+                      <option value="2568">
+                        ปี 2568
                       </option>
 
-                      <option value="2024">
-                        ปี 2024
+                      <option value="2567">
+                        ปี 2567
                       </option>
                     </select>
 
                   </div>
 
 
-                  {/* SIMPLE CHART */}
+                  {/* BAR CHART */}
 
                   <div
-                    className="d-flex align-items-end gap-3 px-2"
+                    className="d-flex align-items-end justify-content-between"
                     style={{
-                      height: "270px",
+                      height: "280px",
+                      padding: "10px 20px 0",
                     }}
                   >
 
                     {[
                       {
                         month: "ม.ค.",
-                        borrow: 45,
-                        returned: 38,
+                        borrow: 42,
+                        returned: 35,
                       },
                       {
                         month: "ก.พ.",
-                        borrow: 52,
-                        returned: 44,
+                        borrow: 55,
+                        returned: 43,
                       },
                       {
                         month: "มี.ค.",
-                        borrow: 68,
-                        returned: 59,
+                        borrow: 48,
+                        returned: 40,
                       },
                       {
                         month: "เม.ย.",
-                        borrow: 48,
-                        returned: 41,
+                        borrow: 65,
+                        returned: 52,
                       },
                       {
                         month: "พ.ค.",
-                        borrow: 72,
-                        returned: 65,
+                        borrow: 58,
+                        returned: 48,
                       },
                       {
                         month: "มิ.ย.",
-                        borrow: 83,
-                        returned: 75,
+                        borrow: 72,
+                        returned: 61,
                       },
                       {
                         month: "ก.ค.",
-                        borrow: 76,
-                        returned: 70,
+                        borrow: 68,
+                        returned: 57,
                       },
                       {
                         month: "ส.ค.",
-                        borrow: 91,
-                        returned: 82,
+                        borrow: 76,
+                        returned: 64,
                       },
                       {
                         month: "ก.ย.",
                         borrow: 64,
                         returned: 57,
                       },
-                    ].map((data) => (
+                    ].map((item) => (
 
                       <div
-                        key={data.month}
-                        className="flex-grow-1 d-flex flex-column align-items-center justify-content-end h-100"
+                        key={item.month}
+                        className="d-flex flex-column align-items-center"
+                        style={{
+                          flex: 1,
+                        }}
                       >
 
                         <div
@@ -407,34 +258,38 @@ export default function DashboardPage() {
                           }}
                         >
 
+                          {/* BORROW */}
+
                           <div
-                            className="rounded-top"
-                            title={`ยืม ${data.borrow} รายการ`}
+                            title={`ยืม ${item.borrow} รายการ`}
                             style={{
-                              width: "12px",
-                              height: `${data.borrow * 2}px`,
-                              maxHeight: "200px",
+                              width: "14px",
+                              height: `${item.borrow * 2.5}px`,
+                              maxHeight: "210px",
                               background: "#6f42c1",
+                              borderRadius: "5px 5px 0 0",
                             }}
-                          ></div>
+                          />
 
+
+                          {/* RETURN */}
 
                           <div
-                            className="rounded-top"
-                            title={`คืน ${data.returned} รายการ`}
+                            title={`คืน ${item.returned} รายการ`}
                             style={{
-                              width: "12px",
-                              height: `${data.returned * 2}px`,
-                              maxHeight: "180px",
+                              width: "14px",
+                              height: `${item.returned * 2.5}px`,
+                              maxHeight: "210px",
                               background: "#198754",
+                              borderRadius: "5px 5px 0 0",
                             }}
-                          ></div>
+                          />
 
                         </div>
 
 
                         <small className="text-secondary mt-2">
-                          {data.month}
+                          {item.month}
                         </small>
 
                       </div>
@@ -444,42 +299,40 @@ export default function DashboardPage() {
                   </div>
 
 
+                  {/* LEGEND */}
+
                   <div className="d-flex justify-content-center gap-4 mt-3">
 
-                    <div className="d-flex align-items-center gap-2">
+                    <span className="small">
 
                       <span
-                        className="rounded-circle"
+                        className="d-inline-block rounded-circle me-2"
                         style={{
                           width: "10px",
                           height: "10px",
                           background: "#6f42c1",
                         }}
-                      ></span>
+                      />
 
-                      <small>
-                        ยืม
-                      </small>
+                      รายการยืม
 
-                    </div>
+                    </span>
 
 
-                    <div className="d-flex align-items-center gap-2">
+                    <span className="small">
 
                       <span
-                        className="rounded-circle"
+                        className="d-inline-block rounded-circle me-2"
                         style={{
                           width: "10px",
                           height: "10px",
                           background: "#198754",
                         }}
-                      ></span>
+                      />
 
-                      <small>
-                        คืน
-                      </small>
+                      รายการคืน
 
-                    </div>
+                    </span>
 
                   </div>
 
@@ -490,190 +343,13 @@ export default function DashboardPage() {
             </div>
 
 
-            {/* EQUIPMENT STATUS */}
+            {/* =================================================
+                RECENT ACTIVITY
+            ================================================= */}
 
-            <div className="col-lg-4">
+            <div className="col-xl-4">
 
               <div className="card border-0 shadow-sm rounded-4 h-100">
-
-                <div className="card-body p-4">
-
-                  <h5 className="fw-bold mb-1">
-                    สถานะครุภัณฑ์
-                  </h5>
-
-                  <small className="text-secondary">
-                    สถานะปัจจุบันของครุภัณฑ์ทั้งหมด
-                  </small>
-
-
-                  <div className="text-center my-4">
-
-                    <div
-                      className="mx-auto rounded-circle d-flex align-items-center justify-content-center"
-                      style={{
-                        width: "170px",
-                        height: "170px",
-                        background:
-                          "conic-gradient(#198754 0deg 270deg, #ffc107 270deg 330deg, #dc3545 330deg 360deg)",
-                      }}
-                    >
-
-                      <div
-                        className="rounded-circle bg-white d-flex flex-column align-items-center justify-content-center"
-                        style={{
-                          width: "125px",
-                          height: "125px",
-                        }}
-                      >
-
-                        <div className="fs-2 fw-bold">
-                          248
-                        </div>
-
-                        <small className="text-secondary">
-                          รายการ
-                        </small>
-
-                      </div>
-
-                    </div>
-
-                  </div>
-
-
-                  <StatusRow
-                    color="#198754"
-                    title="พร้อมใช้งาน"
-                    value="186"
-                    percent="75%"
-                  />
-
-
-                  <StatusRow
-                    color="#ffc107"
-                    title="กำลังยืม"
-                    value="42"
-                    percent="17%"
-                  />
-
-
-                  <StatusRow
-                    color="#dc3545"
-                    title="กำลังซ่อม"
-                    value="20"
-                    percent="8%"
-                  />
-
-                </div>
-
-              </div>
-
-            </div>
-
-          </div>
-
-
-          {/* =================================================
-              THIRD ROW
-          ================================================= */}
-
-          <div className="row g-4 mb-4">
-
-
-            {/* POPULAR EQUIPMENT */}
-
-            <div className="col-lg-7">
-
-              <div className="card border-0 shadow-sm rounded-4">
-
-                <div className="card-body p-4">
-
-                  <div className="d-flex justify-content-between align-items-center mb-4">
-
-                    <div>
-
-                      <h5 className="fw-bold mb-1">
-                        ครุภัณฑ์ที่ถูกยืมบ่อย
-                      </h5>
-
-                      <small className="text-secondary">
-                        5 อันดับครุภัณฑ์ที่มีการยืมสูงสุด
-                      </small>
-
-                    </div>
-
-                    <Link
-                      href="/equipment"
-                      className="btn btn-outline-dark btn-sm rounded-pill"
-                    >
-                      ดูทั้งหมด
-                    </Link>
-
-                  </div>
-
-
-                  <PopularEquipment
-                    rank="01"
-                    icon="bi-camera"
-                    name="Digital Camera"
-                    code="SOC-CAM-001"
-                    count="48"
-                    percent="92%"
-                  />
-
-
-                  <PopularEquipment
-                    rank="02"
-                    icon="bi-projector"
-                    name="Projector"
-                    code="SOC-PRO-002"
-                    count="41"
-                    percent="78%"
-                  />
-
-
-                  <PopularEquipment
-                    rank="03"
-                    icon="bi-laptop"
-                    name="Notebook Computer"
-                    code="SOC-LAP-001"
-                    count="36"
-                    percent="69%"
-                  />
-
-
-                  <PopularEquipment
-                    rank="04"
-                    icon="bi-mic"
-                    name="Wireless Microphone"
-                    code="SOC-MIC-001"
-                    count="31"
-                    percent="59%"
-                  />
-
-
-                  <PopularEquipment
-                    rank="05"
-                    icon="bi-tablet"
-                    name="Tablet"
-                    code="SOC-TAB-001"
-                    count="27"
-                    percent="52%"
-                  />
-
-                </div>
-
-              </div>
-
-            </div>
-
-
-            {/* RECENT ACTIVITY */}
-
-            <div className="col-lg-5">
-
-              <div className="card border-0 shadow-sm rounded-4">
 
                 <div className="card-body p-4">
 
@@ -691,55 +367,58 @@ export default function DashboardPage() {
 
                     </div>
 
+                    <i
+                      className="bi bi-three-dots"
+                      style={{
+                        color: "#6c757d",
+                      }}
+                    />
+
                   </div>
 
 
                   <Activity
                     icon="bi-box-arrow-up-right"
-                    iconBg="#eee8ff"
-                    iconColor="#6f42c1"
+                    color="#6f42c1"
+                    bg="#eee8ff"
                     title="สมชาย ใจดี"
-                    description="ยืม Digital Camera"
+                    detail="ยืม Digital Camera"
                     time="10 นาทีที่แล้ว"
                   />
 
-
                   <Activity
                     icon="bi-check-circle"
-                    iconBg="#d1e7dd"
-                    iconColor="#198754"
+                    color="#198754"
+                    bg="#d1e7dd"
                     title="กมลชนก แสงดี"
-                    description="คืน Projector"
+                    detail="คืน Projector"
                     time="35 นาทีที่แล้ว"
                   />
 
-
                   <Activity
                     icon="bi-box-arrow-up-right"
-                    iconBg="#eee8ff"
-                    iconColor="#6f42c1"
-                    title="ธนกร ใจบุญ"
-                    description="ยืม Notebook Computer"
+                    color="#997404"
+                    bg="#fff3cd"
+                    title="ณัฐวุฒิ พรชัย"
+                    detail="ยืม Notebook Computer"
                     time="1 ชั่วโมงที่แล้ว"
                   />
 
-
                   <Activity
-                    icon="bi-tools"
-                    iconBg="#f8d7da"
-                    iconColor="#dc3545"
-                    title="เจ้าหน้าที่"
-                    description="เปลี่ยนสถานะ Camera เป็นกำลังซ่อม"
+                    icon="bi-person-plus"
+                    color="#0d6efd"
+                    bg="#cfe2ff"
+                    title="วรพล ศรีสุข"
+                    detail="เพิ่มผู้ใช้งานใหม่"
                     time="2 ชั่วโมงที่แล้ว"
                   />
 
-
                   <Activity
-                    icon="bi-check-circle"
-                    iconBg="#d1e7dd"
-                    iconColor="#198754"
-                    title="พิมพ์ชนก สุขใจ"
-                    description="คืน Wireless Microphone"
+                    icon="bi-arrow-return-left"
+                    color="#dc3545"
+                    bg="#f8d7da"
+                    title="นภัสสร วัฒนะ"
+                    detail="คืน Wireless Microphone"
                     time="3 ชั่วโมงที่แล้ว"
                   />
 
@@ -752,75 +431,116 @@ export default function DashboardPage() {
           </div>
 
 
-          {/* =================================================
-              FOURTH ROW
-          ================================================= */}
+          {/* =====================================================
+              POPULAR EQUIPMENT + STATUS
+          ===================================================== */}
 
-          <div className="row g-4">
+          <div className="row g-4 mb-4">
 
 
-            {/* CATEGORY */}
+            {/* =================================================
+                POPULAR EQUIPMENT
+            ================================================= */}
 
-            <div className="col-lg-5">
+            <div className="col-lg-7">
 
-              <div className="card border-0 shadow-sm rounded-4 h-100">
+              <div className="card border-0 shadow-sm rounded-4">
 
                 <div className="card-body p-4">
 
-                  <h5 className="fw-bold mb-1">
-                    ครุภัณฑ์ตามประเภท
-                  </h5>
+                  <div className="d-flex justify-content-between align-items-center mb-4">
 
-                  <small className="text-secondary">
-                    จำนวนครุภัณฑ์แยกตามหมวดหมู่
-                  </small>
+                    <div>
 
+                      <h5 className="fw-bold mb-1">
+                        ครุภัณฑ์ที่ถูกยืมบ่อย
+                      </h5>
 
-                  <div className="mt-4">
+                      <small className="text-secondary">
+                        รายการที่มีการใช้งานสูงสุด
+                      </small>
 
-                    <CategoryBar
-                      icon="bi-camera"
-                      name="อุปกรณ์ถ่ายภาพ"
-                      count="68"
-                      percent="27%"
-                      width="27%"
-                    />
+                    </div>
 
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-secondary"
+                    >
+                      ดูทั้งหมด
+                    </button>
 
-                    <CategoryBar
-                      icon="bi-laptop"
-                      name="คอมพิวเตอร์"
-                      count="54"
-                      percent="22%"
-                      width="22%"
-                    />
+                  </div>
 
 
-                    <CategoryBar
-                      icon="bi-projector"
-                      name="อุปกรณ์นำเสนอ"
-                      count="47"
-                      percent="19%"
-                      width="19%"
-                    />
+                  <div className="table-responsive">
+
+                    <table className="table align-middle mb-0">
+
+                      <thead>
+
+                        <tr>
+
+                          <th>
+                            อันดับ
+                          </th>
+
+                          <th>
+                            ครุภัณฑ์
+                          </th>
+
+                          <th>
+                            รหัส
+                          </th>
+
+                          <th className="text-end">
+                            จำนวนครั้ง
+                          </th>
+
+                        </tr>
+
+                      </thead>
 
 
-                    <CategoryBar
-                      icon="bi-mic"
-                      name="อุปกรณ์เสียง"
-                      count="39"
-                      percent="16%"
-                      width="16%"
-                    />
+                      <tbody>
 
+                        <EquipmentRow
+                          rank="1"
+                          name="Notebook Computer"
+                          code="SOC-LAP-001"
+                          count="38"
+                        />
 
-                    <CategoryBar
-                      icon="bi-box"
-                      name="อื่น ๆ"
-                      count="40"
-                      percent="16%"
-                      width="16%"
-                    />
+                        <EquipmentRow
+                          rank="2"
+                          name="Digital Camera"
+                          code="SOC-CAM-001"
+                          count="34"
+                        />
+
+                        <EquipmentRow
+                          rank="3"
+                          name="Projector"
+                          code="SOC-PRO-002"
+                          count="31"
+                        />
+
+                        <EquipmentRow
+                          rank="4"
+                          name="Wireless Microphone"
+                          code="SOC-MIC-001"
+                          count="28"
+                        />
+
+                        <EquipmentRow
+                          rank="5"
+                          name="Tablet"
+                          code="SOC-TAB-001"
+                          count="27"
+                        />
+
+                      </tbody>
+
+                    </table>
 
                   </div>
 
@@ -831,84 +551,64 @@ export default function DashboardPage() {
             </div>
 
 
-            {/* BORROW SUMMARY */}
+            {/* =================================================
+                EQUIPMENT STATUS
+            ================================================= */}
 
-            <div className="col-lg-7">
+            <div className="col-lg-5">
 
               <div className="card border-0 shadow-sm rounded-4 h-100">
 
                 <div className="card-body p-4">
 
-                  <div className="d-flex justify-content-between align-items-center mb-4">
+                  <h5 className="fw-bold mb-1">
+                    สถานะครุภัณฑ์
+                  </h5>
 
-                    <div>
-
-                      <h5 className="fw-bold mb-1">
-                        สรุปการยืม–คืน
-                      </h5>
-
-                      <small className="text-secondary">
-                        ข้อมูลการใช้งานระบบในเดือนนี้
-                      </small>
-
-                    </div>
+                  <small className="text-secondary">
+                    ภาพรวมสถานะครุภัณฑ์ทั้งหมด
+                  </small>
 
 
-                    <span className="badge bg-success-subtle text-success rounded-pill px-3 py-2">
+                  <div className="mt-4">
 
-                      กันยายน 2026
-
-                    </span>
-
-                  </div>
-
-
-                  <div className="row g-3">
-
-                    <SummaryBox
-                      icon="bi-box-arrow-up-right"
-                      title="รายการยืม"
-                      value="64"
-                      unit="รายการ"
-                      color="#6f42c1"
-                    />
-
-
-                    <SummaryBox
-                      icon="bi-box-arrow-in-left"
-                      title="รายการคืน"
-                      value="57"
-                      unit="รายการ"
+                    <StatusBar
+                      label="พร้อมใช้งาน"
+                      value="186"
+                      percent={75}
                       color="#198754"
                     />
 
-
-                    <SummaryBox
-                      icon="bi-clock-history"
-                      title="เฉลี่ยระยะเวลายืม"
-                      value="3.2"
-                      unit="วัน"
-                      color="#fd7e14"
+                    <StatusBar
+                      label="กำลังถูกยืม"
+                      value="42"
+                      percent={17}
+                      color="#ffc107"
                     />
 
-
-                    <SummaryBox
-                      icon="bi-people"
-                      title="ผู้ใช้งานที่ยืม"
-                      value="48"
-                      unit="คน"
-                      color="#0d6efd"
+                    <StatusBar
+                      label="กำลังซ่อม"
+                      value="20"
+                      percent={8}
+                      color="#dc3545"
                     />
 
                   </div>
 
 
-                  <div className="alert alert-light border rounded-4 mt-4 mb-0">
+                  {/* INFO */}
+
+                  <div
+                    className="rounded-4 p-3 mt-4"
+                    style={{
+                      background: "#f8f5ff",
+                    }}
+                  >
 
                     <div className="d-flex gap-3">
 
                       <div
-                        className="rounded-3 d-flex align-items-center justify-content-center"
+                        className="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
                         style={{
                           width: "45px",
                           height: "45px",
@@ -917,7 +617,7 @@ export default function DashboardPage() {
                         }}
                       >
 
-                        <i className="bi bi-graph-up"></i>
+                        <i className="bi bi-info-circle" />
 
                       </div>
 
@@ -925,12 +625,12 @@ export default function DashboardPage() {
                       <div>
 
                         <div className="fw-semibold">
-                          แนวโน้มการใช้งานเพิ่มขึ้น
+                          อัตราพร้อมใช้งาน
                         </div>
 
                         <small className="text-secondary">
-                          จำนวนการยืมเพิ่มขึ้น 12.5%
-                          เมื่อเทียบกับเดือนที่ผ่านมา
+                          ครุภัณฑ์พร้อมใช้งานคิดเป็น 75%
+                          ของทั้งหมด
                         </small>
 
                       </div>
@@ -947,6 +647,47 @@ export default function DashboardPage() {
 
           </div>
 
+
+          {/* =====================================================
+              QUICK SUMMARY
+          ===================================================== */}
+
+          <div className="row g-4">
+
+            <SummaryCard
+              icon="bi-calendar-check"
+              title="รายการยืมเดือนนี้"
+              value="64"
+              unit="รายการ"
+              color="#6f42c1"
+            />
+
+            <SummaryCard
+              icon="bi-arrow-return-left"
+              title="รายการคืนเดือนนี้"
+              value="57"
+              unit="รายการ"
+              color="#198754"
+            />
+
+            <SummaryCard
+              icon="bi-people"
+              title="ผู้ใช้งานทั้งหมด"
+              value="156"
+              unit="คน"
+              color="#0d6efd"
+            />
+
+            <SummaryCard
+              icon="bi-clock-history"
+              title="เฉลี่ยระยะเวลายืม"
+              value="3.2"
+              unit="วัน"
+              color="#fd7e14"
+            />
+
+          </div>
+
         </div>
 
       </section>
@@ -957,31 +698,35 @@ export default function DashboardPage() {
       ===================================================== */}
 
       <footer
-        className="py-4 text-white"
+        className="py-4"
         style={{
           background: "#17131f",
+          color: "#fff",
         }}
       >
 
-        <div className="container">
+        <div className="admin-page-content py-0">
 
-          <div className="d-flex flex-column flex-md-row justify-content-between gap-3">
+          <div className="container-fluid px-0">
 
-            <div>
+            <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">
 
-              <div className="fw-bold">
-                ระบบยืม–คืนครุภัณฑ์
+              <div>
+
+                <div className="fw-bold">
+                  ระบบยืม–คืนครุภัณฑ์
+                </div>
+
+                <small className="text-white-50">
+                  คณะสังคมศาสตร์ มหาวิทยาลัยเชียงใหม่
+                </small>
+
               </div>
 
               <small className="text-white-50">
-                คณะสังคมศาสตร์ มหาวิทยาลัยเชียงใหม่
+                Admin Panel
               </small>
 
-            </div>
-
-
-            <div className="text-white-50 small">
-              © 2026 Faculty of Social Sciences
             </div>
 
           </div>
@@ -995,30 +740,27 @@ export default function DashboardPage() {
 }
 
 
-/* =====================================================
-   DASHBOARD STAT
-===================================================== */
+/* =========================================================
+   STAT CARD
+========================================================= */
 
-function DashboardStat({
-  icon,
+function StatCard({
   title,
-  number,
-  description,
-  iconBg,
+  value,
+  subtitle,
+  icon,
   iconColor,
-  trend,
-  trendText,
+  iconBg,
+  badge,
 }: {
-  icon: string;
   title: string;
-  number: string;
-  description: string;
-  iconBg: string;
+  value: string;
+  subtitle: string;
+  icon: string;
   iconColor: string;
-  trend: string;
-  trendText: string;
+  iconBg: string;
+  badge: string;
 }) {
-
   return (
     <div className="col-12 col-sm-6 col-xl-3">
 
@@ -1031,48 +773,48 @@ function DashboardStat({
             <div
               className="rounded-3 d-flex align-items-center justify-content-center"
               style={{
-                width: "52px",
-                height: "52px",
+                width: "50px",
+                height: "50px",
                 background: iconBg,
                 color: iconColor,
               }}
             >
-              <i className={`${icon} fs-5`}></i>
+              <i className={`bi ${icon} fs-5`} />
             </div>
 
-
-            <span className="badge bg-success-subtle text-success rounded-pill">
-              {trend}
+            <span
+              className="badge rounded-pill"
+              style={{
+                background: iconBg,
+                color: iconColor,
+              }}
+            >
+              {badge}
             </span>
 
           </div>
 
 
-          <div className="mt-4">
+          <div className="mt-3">
 
-            <small className="text-secondary">
+            <div className="text-secondary small">
               {title}
-            </small>
+            </div>
 
-            <div className="mt-1">
+            <div className="d-flex align-items-baseline gap-2">
 
-              <span className="display-6 fw-bold">
-                {number}
+              <span className="fs-2 fw-bold">
+                {value}
               </span>
 
-              <span className="text-secondary ms-2">
-                {description}
-              </span>
+              <small className="text-secondary">
+                {subtitle}
+              </small>
 
             </div>
 
           </div>
 
-
-          <small className="text-secondary">
-            {trendText}
-          </small>
-
         </div>
 
       </div>
@@ -1082,219 +824,52 @@ function DashboardStat({
 }
 
 
-/* =====================================================
-   STATUS ROW
-===================================================== */
-
-function StatusRow({
-  color,
-  title,
-  value,
-  percent,
-}: {
-  color: string;
-  title: string;
-  value: string;
-  percent: string;
-}) {
-
-  return (
-    <div className="mb-3">
-
-      <div className="d-flex justify-content-between mb-1">
-
-        <div className="d-flex align-items-center gap-2">
-
-          <span
-            className="rounded-circle"
-            style={{
-              width: "9px",
-              height: "9px",
-              background: color,
-            }}
-          ></span>
-
-          <small>
-            {title}
-          </small>
-
-        </div>
-
-
-        <small className="fw-semibold">
-          {value}
-        </small>
-
-      </div>
-
-
-      <div
-        className="progress"
-        style={{
-          height: "7px",
-        }}
-      >
-
-        <div
-          className="progress-bar"
-          style={{
-            width: percent,
-            background: color,
-          }}
-        ></div>
-
-      </div>
-
-    </div>
-  );
-}
-
-
-/* =====================================================
-   POPULAR EQUIPMENT
-===================================================== */
-
-function PopularEquipment({
-  rank,
-  icon,
-  name,
-  code,
-  count,
-  percent,
-}: {
-  rank: string;
-  icon: string;
-  name: string;
-  code: string;
-  count: string;
-  percent: string;
-}) {
-
-  return (
-    <div className="d-flex align-items-center gap-3 mb-3">
-
-      <div
-        className="fw-bold text-secondary"
-        style={{
-          width: "25px",
-        }}
-      >
-        {rank}
-      </div>
-
-
-      <div
-        className="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
-        style={{
-          width: "48px",
-          height: "48px",
-          background: "#f1eef6",
-          color: "#6f42c1",
-        }}
-      >
-
-        <i className={`${icon} fs-5`}></i>
-
-      </div>
-
-
-      <div className="flex-grow-1">
-
-        <div className="fw-semibold">
-          {name}
-        </div>
-
-        <small className="text-secondary">
-          {code}
-        </small>
-
-        <div
-          className="progress mt-2"
-          style={{
-            height: "5px",
-          }}
-        >
-
-          <div
-            className="progress-bar"
-            style={{
-              width: percent,
-              background: "#6f42c1",
-            }}
-          ></div>
-
-        </div>
-
-      </div>
-
-
-      <div className="text-end">
-
-        <strong>
-          {count}
-        </strong>
-
-        <small className="text-secondary d-block">
-          ครั้ง
-        </small>
-
-      </div>
-
-    </div>
-  );
-}
-
-
-/* =====================================================
+/* =========================================================
    ACTIVITY
-===================================================== */
+========================================================= */
 
 function Activity({
   icon,
-  iconBg,
-  iconColor,
+  color,
+  bg,
   title,
-  description,
+  detail,
   time,
 }: {
   icon: string;
-  iconBg: string;
-  iconColor: string;
+  color: string;
+  bg: string;
   title: string;
-  description: string;
+  detail: string;
   time: string;
 }) {
-
   return (
     <div className="d-flex gap-3 mb-4">
 
       <div
-        className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+        className="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
         style={{
           width: "42px",
           height: "42px",
-          background: iconBg,
-          color: iconColor,
+          background: bg,
+          color: color,
         }}
       >
-
-        <i className={icon}></i>
-
+        <i className={`bi ${icon}`} />
       </div>
 
 
-      <div className="flex-grow-1">
+      <div>
 
         <div className="fw-semibold">
           {title}
         </div>
 
         <div className="small text-secondary">
-          {description}
+          {detail}
         </div>
 
-        <div className="small text-secondary mt-1">
-          <i className="bi bi-clock me-1"></i>
+        <div className="small text-muted">
           {time}
         </div>
 
@@ -1305,56 +880,102 @@ function Activity({
 }
 
 
-/* =====================================================
-   CATEGORY BAR
-===================================================== */
+/* =========================================================
+   EQUIPMENT ROW
+========================================================= */
 
-function CategoryBar({
-  icon,
+function EquipmentRow({
+  rank,
   name,
+  code,
   count,
-  percent,
-  width,
 }: {
-  icon: string;
+  rank: string;
   name: string;
+  code: string;
   count: string;
-  percent: string;
-  width: string;
 }) {
+  return (
+    <tr>
 
+      <td>
+
+        <span
+          className="rounded-circle d-inline-flex align-items-center justify-content-center"
+          style={{
+            width: "32px",
+            height: "32px",
+            background:
+              rank === "1"
+                ? "#eee8ff"
+                : "#f8f9fa",
+            color:
+              rank === "1"
+                ? "#6f42c1"
+                : "#6c757d",
+            fontWeight: 700,
+          }}
+        >
+          {rank}
+        </span>
+
+      </td>
+
+
+      <td>
+
+        <div className="fw-semibold">
+          {name}
+        </div>
+
+      </td>
+
+
+      <td>
+
+        <small className="text-secondary">
+          {code}
+        </small>
+
+      </td>
+
+
+      <td className="text-end fw-semibold">
+        {count}
+      </td>
+
+    </tr>
+  );
+}
+
+
+/* =========================================================
+   STATUS BAR
+========================================================= */
+
+function StatusBar({
+  label,
+  value,
+  percent,
+  color,
+}: {
+  label: string;
+  value: string;
+  percent: number;
+  color: string;
+}) {
   return (
     <div className="mb-4">
 
-      <div className="d-flex justify-content-between align-items-center mb-2">
+      <div className="d-flex justify-content-between mb-2">
 
-        <div className="d-flex align-items-center gap-2">
+        <span className="fw-semibold">
+          {label}
+        </span>
 
-          <i
-            className={`${icon}`}
-            style={{
-              color: "#6f42c1",
-            }}
-          ></i>
-
-          <span>
-            {name}
-          </span>
-
-        </div>
-
-
-        <div>
-
-          <strong>
-            {count}
-          </strong>
-
-          <small className="text-secondary ms-2">
-            {percent}
-          </small>
-
-        </div>
+        <span className="text-secondary">
+          {value} รายการ ({percent}%)
+        </span>
 
       </div>
 
@@ -1362,17 +983,18 @@ function CategoryBar({
       <div
         className="progress"
         style={{
-          height: "8px",
+          height: "9px",
+          background: "#f1f3f5",
         }}
       >
 
         <div
-          className="progress-bar"
+          className="progress-bar rounded-pill"
           style={{
-            width,
-            background: "#6f42c1",
+            width: `${percent}%`,
+            background: color,
           }}
-        ></div>
+        />
 
       </div>
 
@@ -1381,11 +1003,11 @@ function CategoryBar({
 }
 
 
-/* =====================================================
-   SUMMARY BOX
-===================================================== */
+/* =========================================================
+   SUMMARY CARD
+========================================================= */
 
-function SummaryBox({
+function SummaryCard({
   icon,
   title,
   value,
@@ -1398,47 +1020,47 @@ function SummaryBox({
   unit: string;
   color: string;
 }) {
-
   return (
-    <div className="col-sm-6">
+    <div className="col-12 col-sm-6 col-xl-3">
 
-      <div
-        className="border rounded-4 p-3 h-100"
-        style={{
-          background: "#fafafa",
-        }}
-      >
+      <div className="card border-0 shadow-sm rounded-4 h-100">
 
-        <div className="d-flex align-items-center gap-3">
+        <div className="card-body p-4">
 
-          <div
-            className="rounded-3 d-flex align-items-center justify-content-center"
-            style={{
-              width: "45px",
-              height: "45px",
-              background: `${color}15`,
-              color,
-            }}
-          >
+          <div className="d-flex align-items-center gap-3">
 
-            <i className={icon}></i>
-
-          </div>
+            <div
+              className="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
+              style={{
+                width: "48px",
+                height: "48px",
+                background: `${color}15`,
+                color: color,
+              }}
+            >
+              <i className={`bi ${icon} fs-5`} />
+            </div>
 
 
-          <div>
+            <div>
 
-            <small className="text-secondary d-block">
-              {title}
-            </small>
+              <small className="text-secondary d-block">
+                {title}
+              </small>
 
-            <strong className="fs-4">
-              {value}
-            </strong>
+              <div className="d-flex align-items-baseline gap-2">
 
-            <small className="text-secondary ms-1">
-              {unit}
-            </small>
+                <span className="fs-4 fw-bold">
+                  {value}
+                </span>
+
+                <small className="text-secondary">
+                  {unit}
+                </small>
+
+              </div>
+
+            </div>
 
           </div>
 

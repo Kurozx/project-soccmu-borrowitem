@@ -1,9 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap-icons/font/bootstrap-icons.css";
+import AdminNavbar from "@/app/components/AdminNavbar";
+
+/* =====================================================
+   TYPES
+===================================================== */
 
 type BorrowStatus =
   | "คืนแล้ว"
@@ -26,6 +30,10 @@ type BorrowHistory = {
   status: BorrowStatus;
   icon: string;
 };
+
+/* =====================================================
+   MOCK DATA
+===================================================== */
 
 const historyData: BorrowHistory[] = [
   {
@@ -146,12 +154,21 @@ const historyData: BorrowHistory[] = [
   },
 ];
 
+/* =====================================================
+   PAGE
+===================================================== */
+
 export default function HistoryPage() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("ทั้งหมด");
   const [sort, setSort] = useState("ล่าสุด");
+
   const [selectedHistory, setSelectedHistory] =
     useState<BorrowHistory | null>(null);
+
+  /* =====================================================
+     FILTER + SORT
+  ===================================================== */
 
   const filteredHistory = historyData
     .filter((item) => {
@@ -195,6 +212,10 @@ export default function HistoryPage() {
       return a.borrowId.localeCompare(b.borrowId);
     });
 
+  /* =====================================================
+     SUMMARY
+  ===================================================== */
+
   const totalCount = historyData.length;
 
   const returnedCount = historyData.filter(
@@ -209,211 +230,108 @@ export default function HistoryPage() {
     (item) => item.status === "รออนุมัติ"
   ).length;
 
+  /* =====================================================
+     RESET
+  ===================================================== */
+
   const resetFilter = () => {
     setSearch("");
     setStatus("ทั้งหมด");
     setSort("ล่าสุด");
   };
 
+  /* =====================================================
+     RETURN
+  ===================================================== */
+
   return (
     <main className="bg-light min-vh-100">
 
-      {/* =====================================================
-          NAVBAR
-      ===================================================== */}
+      {/* =================================================
+          ADMIN NAVBAR
+      ================================================= */}
 
-      <nav className="navbar navbar-expand-lg bg-white border-bottom sticky-top">
+      <AdminNavbar />
 
-        <div className="container py-2">
+      {/* =================================================
+          CONTENT
 
-          <Link
-            href="/"
-            className="navbar-brand d-flex align-items-center gap-3"
-          >
-
-            <div
-              className="d-flex align-items-center justify-content-center rounded-3"
-              style={{
-                width: "48px",
-                height: "48px",
-                background: "#6f42c1",
-                color: "white",
-              }}
-            >
-              <i className="">CMU</i>
-            </div>
-
-            <div>
-
-              <div className="fw-bold text-dark">
-                ระบบยืม–คืนครุภัณฑ์
-              </div>
-
-              <small className="text-secondary">
-                คณะสังคมศาสตร์ มหาวิทยาลัยเชียงใหม่
-              </small>
-
-            </div>
-
-          </Link>
-
-
-          <button
-            className="navbar-toggler"
-            type="button"
-            data-bs-toggle="collapse"
-            data-bs-target="#navbarMenu"
-          >
-            <span className="navbar-toggler-icon"></span>
-          </button>
-
-
-          <div
-            className="collapse navbar-collapse"
-            id="navbarMenu"
-          >
-
-            <ul className="navbar-nav ms-auto align-items-lg-center gap-lg-2">
-
-              <li className="nav-item">
-                <Link
-                  href="/"
-                  className="nav-link"
-                >
-                  <i className="bi bi-house me-1"></i>
-                  หน้าหลัก
-                </Link>
-              </li>
-
-
-              <li className="nav-item">
-                <Link
-                  href="/equipment"
-                  className="nav-link"
-                >
-                  <i className="bi bi-box me-1"></i>
-                  ครุภัณฑ์
-                </Link>
-              </li>
-
-
-              <li className="nav-item">
-                <Link
-                  href="/search"
-                  className="nav-link"
-                >
-                  <i className="bi bi-search me-1"></i>
-                  ค้นหา
-                </Link>
-              </li>
-
-
-              <li className="nav-item">
-                <Link
-                  href="/history"
-                  className="nav-link active fw-semibold"
-                >
-                  <i className="bi bi-clock-history me-1"></i>
-                  ประวัติการยืม
-                </Link>
-              </li>
-
-
-              <li className="nav-item ms-lg-2">
-
-                <button className="btn btn-outline-dark rounded-pill px-4">
-
-                  <i className="bi bi-person me-1"></i>
-                  เข้าสู่ระบบ
-
-                </button>
-
-              </li>
-
-            </ul>
-
-          </div>
-
-        </div>
-
-      </nav>
-
-
-      {/* =====================================================
-          HEADER
-      ===================================================== */}
+          ไม่ใส่ Navbar ซ้ำ
+          ไม่ใช้ container ใหญ่ที่ทำให้เนื้อหาถูกบีบ
+      ================================================= */}
 
       <section
-        className="py-5"
+        className="admin-page-content"
         style={{
-          background:
-            "linear-gradient(135deg, #f5f0ff 0%, #ffffff 60%, #eee8ff 100%)",
+          paddingTop: "98px",
         }}
       >
 
-        <div className="container">
+        {/* =================================================
+            HERO
+        ================================================= */}
 
-          <div className="row align-items-center">
+        <section
+          className="rounded-4 overflow-hidden mb-4"
+          style={{
+            background:
+              "linear-gradient(135deg, #f5f0ff 0%, #ffffff 60%, #eee8ff 100%)",
+          }}
+        >
 
-            <div className="col-lg-7">
+          <div className="container-fluid px-4 py-4">
 
-              <span className="badge rounded-pill bg-white border text-primary px-3 py-2 mb-3">
+            <div className="row align-items-center g-4">
 
-                <i className="bi bi-clock-history me-2"></i>
+              {/* TITLE */}
 
-                BORROWING HISTORY
+              <div className="col-xl-7 col-lg-6">
 
-              </span>
+                <span className="badge rounded-pill bg-white border text-primary px-3 py-2 mb-3">
 
+                </span>
 
-              <h1 className="fw-bold display-6 mb-3">
+                <h1 className="fw-bold mb-2">
+                  ประวัติการยืม–คืน
+                </h1>
 
-                ประวัติการยืม–คืน
+              </div>
 
-              </h1>
+              {/* SUMMARY */}
 
+              <div className="col-xl-5 col-lg-6">
 
-              <p className="text-secondary lead mb-0">
+                <div className="row g-3">
 
-                ตรวจสอบรายการยืมและคืนครุภัณฑ์
-                รวมถึงสถานะของแต่ละรายการ
+                  <SummaryCard
+                    icon="bi-list-ul"
+                    number={totalCount}
+                    title="รายการทั้งหมด"
+                    color="#6f42c1"
+                  />
 
-              </p>
+                  <SummaryCard
+                    icon="bi-check-circle-fill"
+                    number={returnedCount}
+                    title="คืนแล้ว"
+                    color="#198754"
+                  />
 
-            </div>
+                  <SummaryCard
+                    icon="bi-box-arrow-up-right"
+                    number={borrowingCount}
+                    title="กำลังยืม"
+                    color="#fd7e14"
+                  />
 
+                  <SummaryCard
+                    icon="bi-hourglass-split"
+                    number={pendingCount}
+                    title="รออนุมัติ"
+                    color="#ffc107"
+                  />
 
-            <div className="col-lg-5 mt-4 mt-lg-0">
-
-              <div className="row g-2">
-
-                <SummaryCard
-                  icon="bi-list-ul"
-                  number={totalCount}
-                  title="รายการทั้งหมด"
-                  color="#6f42c1"
-                />
-
-                <SummaryCard
-                  icon="bi-check-circle-fill"
-                  number={returnedCount}
-                  title="คืนแล้ว"
-                  color="#198754"
-                />
-
-                <SummaryCard
-                  icon="bi-box-arrow-up-right"
-                  number={borrowingCount}
-                  title="กำลังยืม"
-                  color="#fd7e14"
-                />
-
-                <SummaryCard
-                  icon="bi-hourglass-split"
-                  number={pendingCount}
-                  title="รออนุมัติ"
-                  color="#ffc107"
-                />
+                </div>
 
               </div>
 
@@ -421,18 +339,14 @@ export default function HistoryPage() {
 
           </div>
 
-        </div>
-
-      </section>
+        </section>
 
 
-      {/* =====================================================
-          SEARCH & FILTER
-      ===================================================== */}
+        {/* =================================================
+            SEARCH / FILTER
+        ================================================= */}
 
-      <section className="py-4">
-
-        <div className="container">
+        <section className="mb-4">
 
           <div className="card border-0 shadow-sm rounded-4">
 
@@ -442,7 +356,7 @@ export default function HistoryPage() {
 
                 {/* SEARCH */}
 
-                <div className="col-lg-6">
+                <div className="col-xl-6 col-lg-5">
 
                   <label className="form-label fw-semibold">
 
@@ -460,7 +374,6 @@ export default function HistoryPage() {
 
                     </span>
 
-
                     <input
                       type="text"
                       className="form-control"
@@ -471,20 +384,14 @@ export default function HistoryPage() {
                       }
                     />
 
-
                     {search && (
-
                       <button
                         className="btn btn-outline-secondary"
-                        onClick={() =>
-                          setSearch("")
-                        }
+                        type="button"
+                        onClick={() => setSearch("")}
                       >
-
                         <i className="bi bi-x-lg"></i>
-
                       </button>
-
                     )}
 
                   </div>
@@ -494,7 +401,7 @@ export default function HistoryPage() {
 
                 {/* STATUS */}
 
-                <div className="col-md-6 col-lg-3">
+                <div className="col-xl-3 col-lg-3 col-md-6">
 
                   <label className="form-label fw-semibold">
 
@@ -539,7 +446,7 @@ export default function HistoryPage() {
 
                 {/* SORT */}
 
-                <div className="col-md-6 col-lg-3">
+                <div className="col-xl-3 col-lg-4 col-md-6">
 
                   <label className="form-label fw-semibold">
 
@@ -583,27 +490,21 @@ export default function HistoryPage() {
 
           </div>
 
-        </div>
-
-      </section>
+        </section>
 
 
-      {/* =====================================================
-          RESULT
-      ===================================================== */}
+        {/* =================================================
+            RESULT HEADER
+        ================================================= */}
 
-      <section className="pb-5">
+        <section className="mb-5">
 
-        <div className="container">
-
-          <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+          <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
 
             <div>
 
               <h4 className="fw-bold mb-1">
-
                 รายการประวัติ
-
               </h4>
 
               <span className="text-secondary">
@@ -611,9 +512,7 @@ export default function HistoryPage() {
                 พบ{" "}
 
                 <strong className="text-dark">
-
                   {filteredHistory.length}
-
                 </strong>{" "}
 
                 รายการ
@@ -622,9 +521,9 @@ export default function HistoryPage() {
 
             </div>
 
-
             <button
               className="btn btn-outline-danger rounded-pill px-3"
+              type="button"
               onClick={resetFilter}
             >
 
@@ -637,9 +536,9 @@ export default function HistoryPage() {
           </div>
 
 
-          {/* =====================================================
-              HISTORY LIST
-          ===================================================== */}
+          {/* =================================================
+              TABLE
+          ================================================= */}
 
           <div className="card border-0 shadow-sm rounded-4 overflow-hidden">
 
@@ -679,14 +578,13 @@ export default function HistoryPage() {
 
                 </thead>
 
-
                 <tbody>
 
                   {filteredHistory.map((item) => (
 
                     <tr key={item.id}>
 
-                      {/* EQUIPMENT */}
+                      {/* ITEM */}
 
                       <td className="px-4">
 
@@ -695,8 +593,8 @@ export default function HistoryPage() {
                           <div
                             className="d-flex align-items-center justify-content-center rounded-3 flex-shrink-0"
                             style={{
-                              width: "52px",
-                              height: "52px",
+                              width: "48px",
+                              height: "48px",
                               background: "#eee8ff",
                               color: "#6f42c1",
                             }}
@@ -705,33 +603,26 @@ export default function HistoryPage() {
                             <i
                               className={item.icon}
                               style={{
-                                fontSize: "24px",
+                                fontSize: "21px",
                               }}
                             ></i>
 
                           </div>
 
-
                           <div>
 
                             <div className="fw-semibold">
-
                               {item.equipmentName}
-
                             </div>
 
                             <small className="text-secondary">
-
                               {item.equipmentCode}
-
                             </small>
 
                             <br />
 
                             <small className="text-secondary">
-
                               {item.borrowId}
-
                             </small>
 
                           </div>
@@ -746,15 +637,11 @@ export default function HistoryPage() {
                       <td>
 
                         <div className="fw-semibold">
-
                           {item.borrower}
-
                         </div>
 
                         <small className="text-secondary">
-
                           {item.department}
-
                         </small>
 
                       </td>
@@ -765,9 +652,7 @@ export default function HistoryPage() {
                       <td>
 
                         <div className="fw-semibold">
-
                           {formatDate(item.borrowDate)}
-
                         </div>
 
                       </td>
@@ -778,11 +663,8 @@ export default function HistoryPage() {
                       <td>
 
                         <div className="fw-semibold">
-
                           {formatDate(item.returnDate)}
-
                         </div>
-
 
                         {item.actualReturnDate && (
 
@@ -817,6 +699,7 @@ export default function HistoryPage() {
                       <td className="text-end px-4">
 
                         <button
+                          type="button"
                           className="btn btn-outline-dark btn-sm rounded-pill px-3"
                           onClick={() =>
                             setSelectedHistory(item)
@@ -842,7 +725,9 @@ export default function HistoryPage() {
             </div>
 
 
-            {/* EMPTY */}
+            {/* =================================================
+                EMPTY
+            ================================================= */}
 
             {filteredHistory.length === 0 && (
 
@@ -862,18 +747,12 @@ export default function HistoryPage() {
 
                 </div>
 
-
                 <h5 className="fw-bold">
-
                   ไม่พบประวัติการยืม–คืน
-
                 </h5>
 
-
-                <p className="text-secondary">
-
+                <p className="text-secondary mb-0">
                   ลองเปลี่ยนคำค้นหาหรือเงื่อนไขตัวกรอง
-
                 </p>
 
               </div>
@@ -882,7 +761,7 @@ export default function HistoryPage() {
 
           </div>
 
-        </div>
+        </section>
 
       </section>
 
@@ -895,9 +774,11 @@ export default function HistoryPage() {
 
         <div
           className="modal fade show d-block"
+          role="dialog"
+          aria-modal="true"
           style={{
-            backgroundColor:
-              "rgba(0, 0, 0, 0.6)",
+            backgroundColor: "rgba(0, 0, 0, 0.6)",
+            zIndex: 2000,
           }}
           onClick={() =>
             setSelectedHistory(null)
@@ -913,13 +794,12 @@ export default function HistoryPage() {
 
             <div className="modal-content border-0 rounded-4 overflow-hidden shadow-lg">
 
-
               {/* MODAL HEADER */}
 
               <div
                 className="position-relative d-flex align-items-center justify-content-center"
                 style={{
-                  height: "190px",
+                  height: "180px",
                   background:
                     "linear-gradient(135deg,#f4f0fa,#eee8ff)",
                   color: "#6f42c1",
@@ -929,25 +809,23 @@ export default function HistoryPage() {
                 <i
                   className={selectedHistory.icon}
                   style={{
-                    fontSize: "80px",
+                    fontSize: "75px",
                   }}
                 ></i>
 
-
                 <button
+                  type="button"
                   className="btn-close position-absolute top-0 end-0 m-3 bg-white rounded-circle p-2"
+                  aria-label="ปิด"
                   onClick={() =>
                     setSelectedHistory(null)
                   }
                 ></button>
 
-
                 <div className="position-absolute bottom-0 start-50 translate-middle-x mb-3">
 
                   <HistoryStatusBadge
-                    status={
-                      selectedHistory.status
-                    }
+                    status={selectedHistory.status}
                   />
 
                 </div>
@@ -967,23 +845,15 @@ export default function HistoryPage() {
                       color: "#6f42c1",
                     }}
                   >
-
                     {selectedHistory.borrowId}
-
                   </small>
 
-
                   <h3 className="fw-bold mt-2 mb-1">
-
                     {selectedHistory.equipmentName}
-
                   </h3>
 
-
                   <p className="text-secondary mb-0">
-
                     {selectedHistory.equipmentCode}
-
                   </p>
 
                 </div>
@@ -994,17 +864,13 @@ export default function HistoryPage() {
                   <DetailBox
                     icon="bi-person"
                     title="ผู้ยืม"
-                    value={
-                      selectedHistory.borrower
-                    }
+                    value={selectedHistory.borrower}
                   />
 
                   <DetailBox
                     icon="bi-building"
                     title="หน่วยงาน"
-                    value={
-                      selectedHistory.department
-                    }
+                    value={selectedHistory.department}
                   />
 
                   <DetailBox
@@ -1026,9 +892,7 @@ export default function HistoryPage() {
                   <DetailBox
                     icon="bi-tag"
                     title="ประเภทครุภัณฑ์"
-                    value={
-                      selectedHistory.category
-                    }
+                    value={selectedHistory.category}
                   />
 
                   <DetailBox
@@ -1062,20 +926,14 @@ export default function HistoryPage() {
 
                       </div>
 
-
                       <div>
 
                         <small className="text-secondary">
-
                           วัตถุประสงค์ในการยืม
-
                         </small>
 
-
                         <div className="fw-semibold mt-1">
-
                           {selectedHistory.purpose}
-
                         </div>
 
                       </div>
@@ -1098,11 +956,9 @@ export default function HistoryPage() {
                     ครุภัณฑ์ถูกคืนแล้วเมื่อ{" "}
 
                     <strong>
-
                       {formatDate(
                         selectedHistory.actualReturnDate
                       )}
-
                     </strong>
 
                   </div>
@@ -1117,14 +973,13 @@ export default function HistoryPage() {
               <div className="modal-footer border-0 px-4 px-lg-5 pb-4">
 
                 <button
+                  type="button"
                   className="btn btn-light rounded-pill px-4"
                   onClick={() =>
                     setSelectedHistory(null)
                   }
                 >
-
                   ปิด
-
                 </button>
 
               </div>
@@ -1146,34 +1001,34 @@ export default function HistoryPage() {
         className="py-4 text-white"
         style={{
           background: "#17131f",
+          marginLeft: "0",
         }}
       >
 
-        <div className="container">
+        <div
+          className="container-fluid"
+          style={{
+            paddingLeft: "24px",
+            paddingRight: "24px",
+          }}
+        >
 
           <div className="d-flex flex-column flex-md-row justify-content-between gap-3">
 
             <div>
 
               <div className="fw-bold">
-
                 ระบบยืม–คืนครุภัณฑ์
-
               </div>
 
               <small className="text-white-50">
-
                 คณะสังคมศาสตร์ มหาวิทยาลัยเชียงใหม่
-
               </small>
 
             </div>
 
-
             <div className="text-white-50 small">
-
               © 2026 Faculty of Social Sciences
-
             </div>
 
           </div>
@@ -1202,7 +1057,6 @@ function SummaryCard({
   title: string;
   color: string;
 }) {
-
   return (
 
     <div className="col-6">
@@ -1225,19 +1079,14 @@ function SummaryCard({
 
           </div>
 
-
           <div>
 
             <div className="fs-4 fw-bold">
-
               {number}
-
             </div>
 
             <small className="text-secondary">
-
               {title}
-
             </small>
 
           </div>
@@ -1247,6 +1096,7 @@ function SummaryCard({
       </div>
 
     </div>
+
   );
 }
 
@@ -1260,9 +1110,7 @@ function HistoryStatusBadge({
 }: {
   status: BorrowStatus;
 }) {
-
   const config = {
-
     "คืนแล้ว": {
       background: "#d1e7dd",
       color: "#146c43",
@@ -1286,7 +1134,6 @@ function HistoryStatusBadge({
       color: "#b02a37",
       icon: "bi-x-circle-fill",
     },
-
   };
 
   const current = config[status];
@@ -1309,6 +1156,7 @@ function HistoryStatusBadge({
       {status}
 
     </span>
+
   );
 }
 
@@ -1326,7 +1174,6 @@ function DetailBox({
   title: string;
   value: string;
 }) {
-
   return (
 
     <div className="col-md-6">
@@ -1349,20 +1196,14 @@ function DetailBox({
 
           </div>
 
-
           <div>
 
             <small className="text-secondary">
-
               {title}
-
             </small>
 
-
             <div className="fw-semibold mt-1">
-
               {value}
-
             </div>
 
           </div>
@@ -1372,6 +1213,7 @@ function DetailBox({
       </div>
 
     </div>
+
   );
 }
 
@@ -1381,7 +1223,6 @@ function DetailBox({
 ===================================================== */
 
 function formatDate(date: string) {
-
   return new Date(date).toLocaleDateString(
     "th-TH",
     {

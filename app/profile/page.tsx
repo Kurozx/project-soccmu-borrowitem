@@ -1,975 +1,864 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { signOut } from "next-auth/react";
+import Swal from "sweetalert2";
+
+import UserNavbar from "@/app/components/UserNavbar";
+
 import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap-icons/font/bootstrap-icons.css";
 
-type BorrowItem = {
+type UserProfile = {
   id: number;
-  name: string;
-  code: string;
-  borrowDate: string;
-  returnDate: string;
-  icon: string;
+  username: string;
+  email: string;
+  role: "user" | "admin";
+  created_at: string;
+  updated_at: string;
 };
 
-const currentBorrowing: BorrowItem[] = [
-  {
-    id: 1,
-    name: "Digital Camera",
-    code: "SOC-CAM-001",
-    borrowDate: "3 ก.ย. 2026",
-    returnDate: "10 ก.ย. 2026",
-    icon: "bi-camera",
-  },
-  {
-    id: 2,
-    name: "Projector",
-    code: "SOC-PRO-002",
-    borrowDate: "6 ก.ย. 2026",
-    returnDate: "8 ก.ย. 2026",
-    icon: "bi-projector",
-  },
-];
-
-const recentHistory = [
-  {
-    id: 1,
-    code: "SOC-LAP-001",
-    name: "Notebook Computer",
-    date: "1 ก.ย. 2026",
-    status: "คืนแล้ว",
-    icon: "bi-laptop",
-  },
-  {
-    id: 2,
-    code: "SOC-PRO-001",
-    name: "Projector",
-    date: "4 ก.ย. 2026",
-    status: "คืนแล้ว",
-    icon: "bi-projector",
-  },
-  {
-    id: 3,
-    code: "SOC-TAB-001",
-    name: "Tablet",
-    date: "20 ส.ค. 2026",
-    status: "คืนแล้ว",
-    icon: "bi-tablet",
-  },
-];
-
 export default function ProfilePage() {
-  const [showEditModal, setShowEditModal] = useState(false);
+  const [user, setUser] = useState<UserProfile | null>(null);
 
-  const [user, setUser] = useState({
-    name: "สมชาย ใจดี",
-    studentId: "650610001",
-    email: "somchai.j@example.com",
-    phone: "081-234-5678",
-    department: "ภาควิชาสังคมศาสตร์",
-    position: "นักศึกษา",
+  const [loading, setLoading] = useState(true);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const [editForm, setEditForm] = useState({
+    username: "",
+    email: "",
   });
 
-  const [editForm, setEditForm] = useState(user);
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // =====================================================
+  // LOAD PROFILE
+  // =====================================================
+
+  const loadProfile = async () => {
+    try {
+      setLoading(true);
+
+      const response = await fetch("/api/profile", {
+        method: "GET",
+        cache: "no-store",
+      });
+
+      const contentType = response.headers.get("content-type");
+
+      if (!contentType?.includes("application/json")) {
+        throw new Error("API ไม่ได้ส่งข้อมูล JSON กลับมา");
+      }
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        if (response.status === 401) {
+          window.location.replace("/login");
+          return;
+        }
+
+        throw new Error(
+          result.message || "ไม่สามารถโหลดข้อมูลโปรไฟล์ได้"
+        );
+      }
+
+      setUser(result.data);
+
+      setEditForm({
+        username: result.data.username,
+        email: result.data.email,
+      });
+
+      // เก็บข้อมูลให้ UserNavbar ใช้ได้ด้วย
+      try {
+        sessionStorage.setItem("userName", result.data.username);
+        sessionStorage.setItem("userRole", result.data.role);
+        sessionStorage.setItem("isLoggedIn", "true");
+      } catch (storageError) {
+        console.warn("SESSION STORAGE ERROR:", storageError);
+      }
+    } catch (error) {
+      console.error("LOAD PROFILE ERROR:", error);
+
+      await Swal.fire({
+        icon: "error",
+        title: "โหลดข้อมูลไม่สำเร็จ",
+        text:
+          error instanceof Error
+            ? error.message
+            : "ไม่สามารถโหลดข้อมูลโปรไฟล์ได้",
+        confirmButtonText: "ตกลง",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "profile-swal-confirm",
+        },
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadProfile();
+  }, []);
+
+  // =====================================================
+  // EDIT PROFILE
+  // =====================================================
 
   const openEditModal = () => {
-    setEditForm(user);
+    if (!user) return;
+
+    setEditForm({
+      username: user.username,
+      email: user.email,
+    });
+
     setShowEditModal(true);
   };
 
-  const saveProfile = () => {
-    setUser(editForm);
-    setShowEditModal(false);
+  const saveProfile = async () => {
+    if (!editForm.username.trim()) {
+      await Swal.fire({
+        icon: "warning",
+        title: "ข้อมูลไม่ครบ",
+        text: "กรุณากรอก Username",
+        confirmButtonText: "ตกลง",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "profile-swal-confirm",
+        },
+      });
+
+      return;
+    }
+
+    if (!editForm.email.trim()) {
+      await Swal.fire({
+        icon: "warning",
+        title: "ข้อมูลไม่ครบ",
+        text: "กรุณากรอก Email",
+        confirmButtonText: "ตกลง",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "profile-swal-confirm",
+        },
+      });
+
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      const response = await fetch("/api/profile", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          username: editForm.username.trim(),
+          email: editForm.email.trim(),
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.message || "ไม่สามารถบันทึกข้อมูลได้"
+        );
+      }
+
+      setShowEditModal(false);
+
+      await loadProfile();
+
+      await Swal.fire({
+        icon: "success",
+        title: "บันทึกสำเร็จ",
+        text: "ข้อมูลโปรไฟล์ถูกแก้ไขแล้ว",
+        timer: 1500,
+        showConfirmButton: false,
+      });
+    } catch (error) {
+      console.error("SAVE PROFILE ERROR:", error);
+
+      await Swal.fire({
+        icon: "error",
+        title: "บันทึกไม่สำเร็จ",
+        text:
+          error instanceof Error
+            ? error.message
+            : "ไม่สามารถบันทึกข้อมูลได้",
+        confirmButtonText: "ตกลง",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "profile-swal-confirm",
+        },
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
-  return (
-    <main className="bg-light min-vh-100">
+  // =====================================================
+  // CHANGE PASSWORD
+  // =====================================================
 
-      {/* =====================================================
-          NAVBAR
-      ===================================================== */}
+  const openPasswordModal = () => {
+    setPasswordForm({
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: "",
+    });
 
-      <nav className="navbar navbar-expand-lg bg-white border-bottom sticky-top">
+    setShowCurrentPassword(false);
+    setShowNewPassword(false);
+    setShowConfirmPassword(false);
 
-        <div className="container py-2">
+    setShowPasswordModal(true);
+  };
 
-          <Link
-            href="/"
-            className="navbar-brand d-flex align-items-center gap-3"
-          >
+  const changePassword = async () => {
+    if (
+      !passwordForm.currentPassword ||
+      !passwordForm.newPassword ||
+      !passwordForm.confirmPassword
+    ) {
+      await Swal.fire({
+        icon: "warning",
+        title: "ข้อมูลไม่ครบ",
+        text: "กรุณากรอกรหัสผ่านให้ครบทุกช่อง",
+        confirmButtonText: "ตกลง",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "profile-swal-confirm",
+        },
+      });
 
-            <div
-              className="d-flex align-items-center justify-content-center rounded-3"
+      return;
+    }
+
+    if (passwordForm.newPassword.length < 6) {
+      await Swal.fire({
+        icon: "warning",
+        title: "รหัสผ่านไม่ถูกต้อง",
+        text: "รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร",
+        confirmButtonText: "ตกลง",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "profile-swal-confirm",
+        },
+      });
+
+      return;
+    }
+
+    if (
+      passwordForm.newPassword !==
+      passwordForm.confirmPassword
+    ) {
+      await Swal.fire({
+        icon: "warning",
+        title: "รหัสผ่านไม่ตรงกัน",
+        text: "กรุณากรอกรหัสผ่านใหม่ให้ตรงกัน",
+        confirmButtonText: "ตกลง",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "profile-swal-confirm",
+        },
+      });
+
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      const response = await fetch("/api/profile", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          currentPassword: passwordForm.currentPassword,
+          newPassword: passwordForm.newPassword,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.message || "ไม่สามารถเปลี่ยนรหัสผ่านได้"
+        );
+      }
+
+      setShowPasswordModal(false);
+
+      setPasswordForm({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
+
+      await Swal.fire({
+        icon: "success",
+        title: "เปลี่ยนรหัสผ่านสำเร็จ",
+        text: "รหัสผ่านใหม่ถูกบันทึกเรียบร้อยแล้ว",
+        timer: 1800,
+        showConfirmButton: false,
+      });
+    } catch (error) {
+      console.error("CHANGE PASSWORD ERROR:", error);
+
+      await Swal.fire({
+        icon: "error",
+        title: "เปลี่ยนรหัสผ่านไม่สำเร็จ",
+        text:
+          error instanceof Error
+            ? error.message
+            : "เกิดข้อผิดพลาด",
+        confirmButtonText: "ตกลง",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "profile-swal-confirm",
+        },
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // =====================================================
+  // LOGOUT
+  // =====================================================
+
+  const handleLogout = async () => {
+    if (loggingOut) return;
+
+    const result = await Swal.fire({
+      title: "ออกจากระบบ?",
+      text: "คุณต้องการออกจากระบบใช่หรือไม่",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "ออกจากระบบ",
+      cancelButtonText: "ยกเลิก",
+      reverseButtons: true,
+      focusCancel: true,
+      buttonsStyling: false,
+      customClass: {
+        confirmButton: "profile-swal-confirm",
+        cancelButton: "profile-swal-cancel",
+      },
+    });
+
+    if (!result.isConfirmed) {
+      return;
+    }
+
+    try {
+      setLoggingOut(true);
+
+      Swal.fire({
+        title: "กำลังออกจากระบบ...",
+        text: "กรุณารอสักครู่",
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false,
+        didOpen: () => {
+          Swal.showLoading();
+        },
+      });
+
+      await signOut({
+        redirect: false,
+      });
+
+      try {
+        sessionStorage.removeItem("isLoggedIn");
+        sessionStorage.removeItem("userRole");
+        sessionStorage.removeItem("userName");
+      } catch (storageError) {
+        console.warn(
+          "SESSION STORAGE CLEAR ERROR:",
+          storageError
+        );
+      }
+
+      await Swal.fire({
+        icon: "success",
+        title: "ออกจากระบบสำเร็จ",
+        text: "กำลังกลับไปหน้าเข้าสู่ระบบ...",
+        timer: 1200,
+        timerProgressBar: true,
+        showConfirmButton: false,
+        allowOutsideClick: false,
+      });
+
+      window.location.replace("/login");
+    } catch (error) {
+      console.error("LOGOUT ERROR:", error);
+
+      setLoggingOut(false);
+
+      await Swal.fire({
+        icon: "error",
+        title: "ออกจากระบบไม่สำเร็จ",
+        text: "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง",
+        confirmButtonText: "ตกลง",
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: "profile-swal-confirm",
+        },
+      });
+    }
+  };
+
+  // =====================================================
+  // LOADING
+  // =====================================================
+
+  if (loading) {
+    return (
+      <main className="bg-light min-vh-100">
+        <div
+          className="d-flex flex-column align-items-center justify-content-center"
+          style={{
+            minHeight: "100vh",
+          }}
+        >
+          <div
+            className="spinner-border mb-3"
+            style={{
+              color: "#6f42c1",
+              width: "3rem",
+              height: "3rem",
+            }}
+          />
+
+          <div className="text-secondary">
+            กำลังโหลดข้อมูลโปรไฟล์...
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  // =====================================================
+  // NO USER
+  // =====================================================
+
+  if (!user) {
+    return (
+      <main className="bg-light min-vh-100">
+        <div
+          className="d-flex align-items-center justify-content-center"
+          style={{
+            minHeight: "100vh",
+          }}
+        >
+          <div className="text-center">
+            <i
+              className="bi bi-person-x"
               style={{
-                width: "48px",
-                height: "48px",
+                fontSize: "60px",
+                color: "#6f42c1",
+              }}
+            />
+
+            <h3 className="fw-bold mt-3">
+              ไม่พบข้อมูลผู้ใช้งาน
+            </h3>
+
+            <Link
+              href="/login"
+              className="btn text-white rounded-pill px-4 mt-3"
+              style={{
                 background: "#6f42c1",
-                color: "white",
               }}
             >
-              <i className="">CMU</i>
-            </div>
+              กลับไปหน้าเข้าสู่ระบบ
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
-            <div>
+  // =====================================================
+  // MAIN
+  // =====================================================
 
-              <div className="fw-bold text-dark">
-                ระบบยืม–คืนครุภัณฑ์
+  return (
+    <>
+      <UserNavbar />
+
+      <main className="profile-main-content bg-light min-vh-100">
+        {/* =================================================
+            HEADER
+        ================================================= */}
+
+        <section
+          className="py-5"
+          style={{
+            background:
+              "linear-gradient(135deg, #f5f0ff 0%, #ffffff 60%, #eee8ff 100%)",
+          }}
+        >
+          <div className="container-fluid px-4 px-lg-5">
+            <div className="d-flex align-items-center gap-3">
+              <div
+                className="rounded-circle d-flex align-items-center justify-content-center text-white flex-shrink-0"
+                style={{
+                  width: "90px",
+                  height: "90px",
+                  background: "#6f42c1",
+                  fontSize: "38px",
+                }}
+              >
+                <i className="bi bi-person"></i>
               </div>
 
-              <small className="text-secondary">
-                คณะสังคมศาสตร์ มหาวิทยาลัยเชียงใหม่
-              </small>
-
-            </div>
-
-          </Link>
-
-
-          <button
-            className="navbar-toggler"
-            type="button"
-            data-bs-toggle="collapse"
-            data-bs-target="#navbarMenu"
-          >
-            <span className="navbar-toggler-icon"></span>
-          </button>
-
-
-          <div
-            className="collapse navbar-collapse"
-            id="navbarMenu"
-          >
-
-            <ul className="navbar-nav ms-auto align-items-lg-center gap-lg-2">
-
-              <li className="nav-item">
-
-                <Link
-                  href="/"
-                  className="nav-link"
-                >
-                  <i className="bi bi-house me-1"></i>
-                  หน้าหลัก
-                </Link>
-
-              </li>
-
-
-              <li className="nav-item">
-
-                <Link
-                  href="/equipment"
-                  className="nav-link"
-                >
-                  <i className="bi bi-box me-1"></i>
-                  ครุภัณฑ์
-                </Link>
-
-              </li>
-
-
-              <li className="nav-item">
-
-                <Link
-                  href="/search"
-                  className="nav-link"
-                >
-                  <i className="bi bi-search me-1"></i>
-                  ค้นหา
-                </Link>
-
-              </li>
-
-
-              <li className="nav-item">
-
-                <Link
-                  href="/history"
-                  className="nav-link"
-                >
-                  <i className="bi bi-clock-history me-1"></i>
-                  ประวัติการยืม
-                </Link>
-
-              </li>
-
-
-              <li className="nav-item ms-lg-2">
-
-                <Link
-                  href="/profile"
-                  className="btn rounded-pill px-4 text-white"
-                  style={{
-                    background: "#6f42c1",
-                  }}
-                >
-
+              <div>
+                <span className="badge rounded-pill bg-white border text-primary px-3 py-2 mb-2">
                   <i className="bi bi-person-circle me-2"></i>
+                  MY PROFILE
+                </span>
 
-                  โปรไฟล์
+                <h1 className="fw-bold mb-1">
+                  {user.username}
+                </h1>
 
-                </Link>
-
-              </li>
-
-            </ul>
-
-          </div>
-
-        </div>
-
-      </nav>
-
-
-      {/* =====================================================
-          HEADER
-      ===================================================== */}
-
-      <section
-        className="py-5"
-        style={{
-          background:
-            "linear-gradient(135deg, #f5f0ff 0%, #ffffff 60%, #eee8ff 100%)",
-        }}
-      >
-
-        <div className="container">
-
-          <div className="d-flex align-items-center gap-3">
-
-            <div
-              className="rounded-circle d-flex align-items-center justify-content-center text-white flex-shrink-0"
-              style={{
-                width: "90px",
-                height: "90px",
-                background: "#6f42c1",
-                fontSize: "38px",
-              }}
-            >
-
-              <i className="bi bi-person"></i>
-
+                <p className="text-secondary mb-0">
+                  ข้อมูลบัญชีผู้ใช้งาน
+                </p>
+              </div>
             </div>
-
-
-            <div>
-
-              <span className="badge rounded-pill bg-white border text-primary px-3 py-2 mb-2">
-
-                <i className="bi bi-person-circle me-2"></i>
-
-                MY PROFILE
-
-              </span>
-
-
-              <h1 className="fw-bold mb-1">
-
-                {user.name}
-
-              </h1>
-
-
-              <p className="text-secondary mb-0">
-
-                {user.position} · {user.department}
-
-              </p>
-
-            </div>
-
           </div>
+        </section>
 
-        </div>
+        {/* =================================================
+            CONTENT
+        ================================================= */}
 
-      </section>
-
-
-      {/* =====================================================
-          MAIN
-      ===================================================== */}
-
-      <section className="py-4 pb-5">
-
-        <div className="container">
-
-          <div className="row g-4">
-
-
-            {/* =================================================
-                LEFT COLUMN
-            ================================================= */}
-
-            <div className="col-lg-4">
-
+        <section className="py-4 pb-5">
+          <div className="container-fluid px-4 px-lg-5">
+            <div className="row g-4">
               {/* PROFILE CARD */}
 
-              <div className="card border-0 shadow-sm rounded-4 overflow-hidden mb-4">
-
-                <div
-                  className="text-center p-4"
-                  style={{
-                    background:
-                      "linear-gradient(135deg,#6f42c1,#8e6ac8)",
-                  }}
-                >
-
+              <div className="col-lg-5">
+                <div className="card border-0 shadow-sm rounded-4 overflow-hidden">
                   <div
-                    className="mx-auto rounded-circle bg-white d-flex align-items-center justify-content-center"
+                    className="text-center p-4"
                     style={{
-                      width: "110px",
-                      height: "110px",
-                      color: "#6f42c1",
-                      fontSize: "48px",
+                      background:
+                        "linear-gradient(135deg,#6f42c1,#8e6ac8)",
                     }}
                   >
-
-                    <i className="bi bi-person"></i>
-
-                  </div>
-
-
-                  <h4 className="text-white fw-bold mt-3 mb-1">
-
-                    {user.name}
-
-                  </h4>
-
-
-                  <span className="badge bg-white text-dark rounded-pill px-3">
-
-                    {user.position}
-
-                  </span>
-
-                </div>
-
-
-                <div className="card-body p-4">
-
-                  <div className="mb-3">
-
-                    <small className="text-secondary">
-                      รหัสนักศึกษา / บุคลากร
-                    </small>
-
-                    <div className="fw-semibold mt-1">
-
-                      {user.studentId}
-
-                    </div>
-
-                  </div>
-
-
-                  <div className="mb-3">
-
-                    <small className="text-secondary">
-                      อีเมล
-                    </small>
-
-                    <div className="fw-semibold mt-1 text-break">
-
-                      {user.email}
-
-                    </div>
-
-                  </div>
-
-
-                  <div className="mb-3">
-
-                    <small className="text-secondary">
-                      เบอร์โทรศัพท์
-                    </small>
-
-                    <div className="fw-semibold mt-1">
-
-                      {user.phone}
-
-                    </div>
-
-                  </div>
-
-
-                  <div>
-
-                    <small className="text-secondary">
-                      สังกัด
-                    </small>
-
-                    <div className="fw-semibold mt-1">
-
-                      {user.department}
-
-                    </div>
-
-                  </div>
-
-                </div>
-
-
-                <div className="card-footer bg-white border-0 p-4 pt-0">
-
-                  <button
-                    className="btn btn-dark rounded-pill w-100"
-                    onClick={openEditModal}
-                  >
-
-                    <i className="bi bi-pencil me-2"></i>
-
-                    แก้ไขข้อมูลส่วนตัว
-
-                  </button>
-
-                </div>
-
-              </div>
-
-
-              {/* SECURITY CARD */}
-
-              <div className="card border-0 shadow-sm rounded-4">
-
-                <div className="card-body p-4">
-
-                  <h5 className="fw-bold mb-3">
-
-                    <i className="bi bi-shield-check me-2 text-success"></i>
-
-                    ความปลอดภัย
-
-                  </h5>
-
-
-                  <div className="d-flex align-items-center justify-content-between mb-3">
-
-                    <div>
-
-                      <div className="fw-semibold">
-                        บัญชีผู้ใช้งาน
-                      </div>
-
-                      <small className="text-secondary">
-                        บัญชีใช้งานปกติ
-                      </small>
-
-                    </div>
-
-
-                    <span className="badge rounded-pill bg-success-subtle text-success">
-
-                      ใช้งานอยู่
-
-                    </span>
-
-                  </div>
-
-
-                  <button className="btn btn-outline-secondary rounded-pill w-100">
-
-                    <i className="bi bi-key me-2"></i>
-
-                    เปลี่ยนรหัสผ่าน
-
-                  </button>
-
-                </div>
-
-              </div>
-
-            </div>
-
-
-            {/* =================================================
-                RIGHT COLUMN
-            ================================================= */}
-
-            <div className="col-lg-8">
-
-
-              {/* =================================================
-                  STATISTICS
-              ================================================= */}
-
-              <div className="row g-3 mb-4">
-
-                <ProfileStat
-                  icon="bi-box-arrow-up-right"
-                  number="12"
-                  title="ยืมทั้งหมด"
-                  color="#6f42c1"
-                />
-
-                <ProfileStat
-                  icon="bi-check-circle-fill"
-                  number="10"
-                  title="คืนแล้ว"
-                  color="#198754"
-                />
-
-                <ProfileStat
-                  icon="bi-box-seam"
-                  number={currentBorrowing.length.toString()}
-                  title="กำลังยืม"
-                  color="#fd7e14"
-                />
-
-                <ProfileStat
-                  icon="bi-x-circle-fill"
-                  number="0"
-                  title="เกินกำหนด"
-                  color="#dc3545"
-                />
-
-              </div>
-
-
-              {/* =================================================
-                  CURRENT BORROWING
-              ================================================= */}
-
-              <div className="card border-0 shadow-sm rounded-4 mb-4">
-
-                <div className="card-body p-4">
-
-                  <div className="d-flex justify-content-between align-items-center mb-4">
-
-                    <div>
-
-                      <h5 className="fw-bold mb-1">
-
-                        ครุภัณฑ์ที่กำลังยืม
-
-                      </h5>
-
-                      <small className="text-secondary">
-
-                        รายการที่ยังไม่ได้คืน
-
-                      </small>
-
-                    </div>
-
-
-                    <span className="badge rounded-pill bg-warning-subtle text-warning px-3 py-2">
-
-                      {currentBorrowing.length} รายการ
-
-                    </span>
-
-                  </div>
-
-
-                  <div className="d-flex flex-column gap-3">
-
-                    {currentBorrowing.map((item) => (
-
-                      <div
-                        key={item.id}
-                        className="border rounded-4 p-3"
-                      >
-
-                        <div className="d-flex align-items-center gap-3">
-
-                          <div
-                            className="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
-                            style={{
-                              width: "58px",
-                              height: "58px",
-                              background: "#eee8ff",
-                              color: "#6f42c1",
-                            }}
-                          >
-
-                            <i
-                              className={item.icon}
-                              style={{
-                                fontSize: "27px",
-                              }}
-                            ></i>
-
-                          </div>
-
-
-                          <div className="flex-grow-1">
-
-                            <div className="fw-bold">
-
-                              {item.name}
-
-                            </div>
-
-                            <small className="text-secondary">
-
-                              {item.code}
-
-                            </small>
-
-                            <div className="mt-2">
-
-                              <span className="badge rounded-pill bg-warning-subtle text-warning">
-
-                                <i className="bi bi-clock me-1"></i>
-
-                                กำลังยืม
-
-                              </span>
-
-                            </div>
-
-                          </div>
-
-
-                          <div className="text-end d-none d-md-block">
-
-                            <small className="text-secondary d-block">
-
-                              กำหนดคืน
-
-                            </small>
-
-                            <strong>
-
-                              {item.returnDate}
-
-                            </strong>
-
-                          </div>
-
-                        </div>
-
-                      </div>
-
-                    ))}
-
-                  </div>
-
-                </div>
-
-              </div>
-
-
-              {/* =================================================
-                  RECENT HISTORY
-              ================================================= */}
-
-              <div className="card border-0 shadow-sm rounded-4 mb-4">
-
-                <div className="card-body p-4">
-
-                  <div className="d-flex justify-content-between align-items-center mb-4">
-
-                    <div>
-
-                      <h5 className="fw-bold mb-1">
-
-                        ประวัติการยืมล่าสุด
-
-                      </h5>
-
-                      <small className="text-secondary">
-
-                        รายการยืม–คืนล่าสุดของคุณ
-
-                      </small>
-
-                    </div>
-
-
-                    <Link
-                      href="/history"
-                      className="btn btn-outline-dark btn-sm rounded-pill px-3"
+                    <div
+                      className="mx-auto rounded-circle bg-white d-flex align-items-center justify-content-center"
+                      style={{
+                        width: "110px",
+                        height: "110px",
+                        color: "#6f42c1",
+                        fontSize: "48px",
+                      }}
                     >
+                      <i className="bi bi-person"></i>
+                    </div>
 
-                      ดูทั้งหมด
+                    <h4 className="text-white fw-bold mt-3 mb-1">
+                      {user.username}
+                    </h4>
 
-                      <i className="bi bi-arrow-right ms-2"></i>
-
-                    </Link>
-
+                    <span className="badge bg-white text-dark rounded-pill px-3">
+                      {user.role === "admin"
+                        ? "ผู้ดูแลระบบ"
+                        : "ผู้ใช้งาน"}
+                    </span>
                   </div>
 
-
-                  <div className="table-responsive">
-
-                    <table className="table align-middle mb-0">
-
-                      <thead>
-
-                        <tr>
-
-                          <th>
-                            ครุภัณฑ์
-                          </th>
-
-                          <th>
-                            วันที่ยืม
-                          </th>
-
-                          <th>
-                            สถานะ
-                          </th>
-
-                        </tr>
-
-                      </thead>
-
-
-                      <tbody>
-
-                        {recentHistory.map((item) => (
-
-                          <tr key={item.id}>
-
-                            <td>
-
-                              <div className="d-flex align-items-center gap-3">
-
-                                <div
-                                  className="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
-                                  style={{
-                                    width: "45px",
-                                    height: "45px",
-                                    background: "#eee8ff",
-                                    color: "#6f42c1",
-                                  }}
-                                >
-
-                                  <i
-                                    className={item.icon}
-                                  ></i>
-
-                                </div>
-
-
-                                <div>
-
-                                  <div className="fw-semibold">
-
-                                    {item.name}
-
-                                  </div>
-
-                                  <small className="text-secondary">
-
-                                    {item.code}
-
-                                  </small>
-
-                                </div>
-
-                              </div>
-
-                            </td>
-
-
-                            <td>
-
-                              {item.date}
-
-                            </td>
-
-
-                            <td>
-
-                              <span className="badge rounded-pill bg-success-subtle text-success px-3 py-2">
-
-                                <i className="bi bi-check-circle me-1"></i>
-
-                                {item.status}
-
-                              </span>
-
-                            </td>
-
-                          </tr>
-
-                        ))}
-
-                      </tbody>
-
-                    </table>
-
-                  </div>
-
-                </div>
-
-              </div>
-
-
-              {/* =================================================
-                  ACCOUNT ACTIONS
-              ================================================= */}
-
-              <div className="card border-0 shadow-sm rounded-4">
-
-                <div className="card-body p-4">
-
-                  <h5 className="fw-bold mb-3">
-
-                    การจัดการบัญชี
-
-                  </h5>
-
-
-                  <div className="d-flex flex-column flex-md-row gap-2">
-
-                    <button className="btn btn-outline-secondary rounded-pill">
-
-                      <i className="bi bi-bell me-2"></i>
-
-                      ตั้งค่าการแจ้งเตือน
-
-                    </button>
-
-
-                    <button className="btn btn-outline-danger rounded-pill">
-
-                      <i className="bi bi-box-arrow-right me-2"></i>
-
-                      ออกจากระบบ
-
-                    </button>
-
-                  </div>
-
-                </div>
-
-              </div>
-
-            </div>
-
-          </div>
-
-        </div>
-
-      </section>
-
-
-      {/* =====================================================
-          EDIT PROFILE MODAL
-      ===================================================== */}
-
-      {showEditModal && (
-
-        <div
-          className="modal fade show d-block"
-          style={{
-            backgroundColor: "rgba(0,0,0,0.6)",
-          }}
-          onClick={() =>
-            setShowEditModal(false)
-          }
-        >
-
-          <div
-            className="modal-dialog modal-dialog-centered modal-lg"
-            onClick={(e) =>
-              e.stopPropagation()
-            }
-          >
-
-            <div className="modal-content border-0 rounded-4">
-
-              {/* HEADER */}
-
-              <div className="modal-header border-0 p-4">
-
-                <div>
-
-                  <h4 className="fw-bold mb-1">
-
-                    แก้ไขข้อมูลส่วนตัว
-
-                  </h4>
-
-                  <small className="text-secondary">
-
-                    แก้ไขข้อมูลสำหรับติดต่อของคุณ
-
-                  </small>
-
-                </div>
-
-
-                <button
-                  className="btn-close"
-                  onClick={() =>
-                    setShowEditModal(false)
-                  }
-                ></button>
-
-              </div>
-
-
-              {/* BODY */}
-
-              <div className="modal-body px-4 pb-4">
-
-                <div className="row g-3">
-
-                  {/* NAME */}
-
-                  <div className="col-md-6">
-
-                    <label className="form-label fw-semibold">
-
-                      ชื่อ–นามสกุล
-
-                    </label>
-
-                    <input
-                      type="text"
-                      className="form-control"
-                      value={editForm.name}
-                      onChange={(e) =>
-                        setEditForm({
-                          ...editForm,
-                          name: e.target.value,
-                        })
+                  <div className="card-body p-4">
+
+                    <ProfileField
+                      icon="bi-person"
+                      title="Username"
+                      value={user.username}
+                    />
+
+                    <ProfileField
+                      icon="bi-envelope"
+                      title="Email"
+                      value={user.email}
+                    />
+
+                    <ProfileField
+                      icon="bi-shield-check"
+                      title="สิทธิ์การใช้งาน"
+                      value={
+                        user.role === "admin"
+                          ? "ผู้ดูแลระบบ"
+                          : "ผู้ใช้งาน"
                       }
                     />
 
+                    <ProfileField
+                      icon="bi-calendar-check"
+                      title="วันที่สมัครสมาชิก"
+                      value={formatDate(user.created_at)}
+                    />
+
+                    <ProfileField
+                      icon="bi-clock-history"
+                      title="แก้ไขข้อมูลล่าสุด"
+                      value={formatDate(user.updated_at)}
+                      last
+                    />
                   </div>
 
+                  <div className="card-footer bg-white border-0 p-4 pt-0">
+                    <button
+                      className="btn btn-dark rounded-pill w-100"
+                      onClick={openEditModal}
+                    >
+                      <i className="bi bi-pencil me-2"></i>
+                      แก้ไขข้อมูลส่วนตัว
+                    </button>
+                  </div>
+                </div>
+              </div>
 
-                  {/* ID */}
+              {/* RIGHT */}
 
-                  <div className="col-md-6">
+              <div className="col-lg-7">
+                {/* ACCOUNT INFO */}
 
+                <div className="card border-0 shadow-sm rounded-4 mb-4">
+                  <div className="card-body p-4">
+                    <h5 className="fw-bold mb-4">
+                      <i
+                        className="bi bi-person-vcard me-2"
+                        style={{
+                          color: "#6f42c1",
+                        }}
+                      ></i>
+                      ข้อมูลบัญชี
+                    </h5>
+
+                    <div className="row g-3">
+                      <div className="col-md-6">
+                        <div className="border rounded-4 p-3 h-100">
+                          <small className="text-secondary">
+                            Username
+                          </small>
+
+                          <div className="fw-bold mt-1 text-break">
+                            {user.username}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="col-md-6">
+                        <div className="border rounded-4 p-3 h-100">
+                          <small className="text-secondary">
+                            Email
+                          </small>
+
+                          <div className="fw-bold mt-1 text-break">
+                            {user.email}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="col-md-6">
+                        <div className="border rounded-4 p-3 h-100">
+                          <small className="text-secondary">
+                            สิทธิ์
+                          </small>
+
+                          <div className="mt-2">
+                            <span
+                              className={`badge rounded-pill ${
+                                user.role === "admin"
+                                  ? "bg-danger-subtle text-danger"
+                                  : "bg-primary-subtle text-primary"
+                              }`}
+                            >
+                              <i className="bi bi-shield-check me-1"></i>
+
+                              {user.role === "admin"
+                                ? "ผู้ดูแลระบบ"
+                                : "ผู้ใช้งาน"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="col-md-6">
+                        <div className="border rounded-4 p-3 h-100">
+                          <small className="text-secondary">
+                            สถานะบัญชี
+                          </small>
+
+                          <div className="mt-2">
+                            <span className="badge rounded-pill bg-success-subtle text-success">
+                              <i className="bi bi-check-circle me-1"></i>
+                              ใช้งานอยู่
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* SECURITY */}
+
+                <div className="card border-0 shadow-sm rounded-4 mb-4">
+                  <div className="card-body p-4">
+                    <h5 className="fw-bold mb-4">
+                      <i className="bi bi-shield-check me-2 text-success"></i>
+                      ความปลอดภัย
+                    </h5>
+
+                    <div className="d-flex align-items-center justify-content-between border rounded-4 p-3 mb-3">
+                      <div>
+                        <div className="fw-semibold">
+                          รหัสผ่าน
+                        </div>
+
+                        <small className="text-secondary">
+                          รหัสผ่านถูกจัดเก็บแบบเข้ารหัส
+                        </small>
+                      </div>
+
+                      <span className="badge rounded-pill bg-success-subtle text-success">
+                        ปลอดภัย
+                      </span>
+                    </div>
+
+                    <button
+                      className="btn btn-outline-secondary rounded-pill w-100"
+                      onClick={openPasswordModal}
+                    >
+                      <i className="bi bi-key me-2"></i>
+                      เปลี่ยนรหัสผ่าน
+                    </button>
+                  </div>
+                </div>
+
+                {/* ACCOUNT ACTIONS */}
+
+                <div className="card border-0 shadow-sm rounded-4">
+                  <div className="card-body p-4">
+                    <h5 className="fw-bold mb-3">
+                      การจัดการบัญชี
+                    </h5>
+
+                    <button
+                      type="button"
+                      className="btn btn-outline-danger rounded-pill"
+                      onClick={handleLogout}
+                      disabled={loggingOut}
+                    >
+                      {loggingOut ? (
+                        <>
+                          <span className="spinner-border spinner-border-sm me-2"></span>
+                          กำลังออกจากระบบ...
+                        </>
+                      ) : (
+                        <>
+                          <i className="bi bi-box-arrow-right me-2"></i>
+                          ออกจากระบบ
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* =====================================================
+            EDIT PROFILE MODAL
+        ===================================================== */}
+
+        {showEditModal && (
+          <div
+            className="modal fade show d-block"
+            style={{
+              backgroundColor: "rgba(0,0,0,0.6)",
+              zIndex: 2000,
+            }}
+            onClick={() =>
+              !saving && setShowEditModal(false)
+            }
+          >
+            <div
+              className="modal-dialog modal-dialog-centered"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="modal-content border-0 rounded-4">
+                <div className="modal-header border-0 p-4">
+                  <div>
+                    <h4 className="fw-bold mb-1">
+                      แก้ไขข้อมูลส่วนตัว
+                    </h4>
+
+                    <small className="text-secondary">
+                      แก้ไข Username และ Email
+                    </small>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="btn-close"
+                    disabled={saving}
+                    onClick={() =>
+                      setShowEditModal(false)
+                    }
+                  ></button>
+                </div>
+
+                <div className="modal-body px-4 pb-4">
+                  <div className="mb-3">
                     <label className="form-label fw-semibold">
-
-                      รหัสนักศึกษา / บุคลากร
-
+                      Username
                     </label>
 
                     <input
                       type="text"
                       className="form-control"
-                      value={editForm.studentId}
-                      disabled
+                      value={editForm.username}
+                      onChange={(e) =>
+                        setEditForm({
+                          ...editForm,
+                          username: e.target.value,
+                        })
+                      }
+                      disabled={saving}
                     />
-
-                    <small className="text-secondary">
-
-                      ไม่สามารถแก้ไขข้อมูลนี้ได้
-
-                    </small>
-
                   </div>
 
-
-                  {/* EMAIL */}
-
-                  <div className="col-md-6">
-
+                  <div className="mb-3">
                     <label className="form-label fw-semibold">
-
-                      อีเมล
-
+                      Email
                     </label>
 
                     <input
@@ -982,238 +871,413 @@ export default function ProfilePage() {
                           email: e.target.value,
                         })
                       }
+                      disabled={saving}
                     />
-
                   </div>
 
-
-                  {/* PHONE */}
-
-                  <div className="col-md-6">
-
+                  <div>
                     <label className="form-label fw-semibold">
-
-                      เบอร์โทรศัพท์
-
+                      สิทธิ์การใช้งาน
                     </label>
 
                     <input
                       type="text"
                       className="form-control"
-                      value={editForm.phone}
-                      onChange={(e) =>
-                        setEditForm({
-                          ...editForm,
-                          phone: e.target.value,
-                        })
+                      value={
+                        user.role === "admin"
+                          ? "ผู้ดูแลระบบ"
+                          : "ผู้ใช้งาน"
                       }
-                    />
-
-                  </div>
-
-
-                  {/* DEPARTMENT */}
-
-                  <div className="col-md-6">
-
-                    <label className="form-label fw-semibold">
-
-                      สังกัด / ภาควิชา
-
-                    </label>
-
-                    <input
-                      type="text"
-                      className="form-control"
-                      value={editForm.department}
-                      onChange={(e) =>
-                        setEditForm({
-                          ...editForm,
-                          department: e.target.value,
-                        })
-                      }
-                    />
-
-                  </div>
-
-
-                  {/* POSITION */}
-
-                  <div className="col-md-6">
-
-                    <label className="form-label fw-semibold">
-
-                      ประเภทผู้ใช้งาน
-
-                    </label>
-
-                    <input
-                      type="text"
-                      className="form-control"
-                      value={editForm.position}
                       disabled
                     />
 
+                    <small className="text-secondary">
+                      ไม่สามารถแก้ไขสิทธิ์จากหน้า Profile ได้
+                    </small>
                   </div>
-
                 </div>
 
+                <div className="modal-footer border-0 px-4 pb-4">
+                  <button
+                    className="btn btn-light rounded-pill px-4"
+                    disabled={saving}
+                    onClick={() =>
+                      setShowEditModal(false)
+                    }
+                  >
+                    ยกเลิก
+                  </button>
+
+                  <button
+                    className="btn text-white rounded-pill px-4"
+                    style={{
+                      background: "#6f42c1",
+                    }}
+                    disabled={saving}
+                    onClick={saveProfile}
+                  >
+                    {saving ? (
+                      <>
+                        <span className="spinner-border spinner-border-sm me-2"></span>
+                        กำลังบันทึก...
+                      </>
+                    ) : (
+                      <>
+                        <i className="bi bi-check-lg me-2"></i>
+                        บันทึกข้อมูล
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
-
-
-              {/* FOOTER */}
-
-              <div className="modal-footer border-0 px-4 pb-4">
-
-                <button
-                  className="btn btn-light rounded-pill px-4"
-                  onClick={() =>
-                    setShowEditModal(false)
-                  }
-                >
-
-                  ยกเลิก
-
-                </button>
-
-
-                <button
-                  className="btn text-white rounded-pill px-4"
-                  style={{
-                    background: "#6f42c1",
-                  }}
-                  onClick={saveProfile}
-                >
-
-                  <i className="bi bi-check-lg me-2"></i>
-
-                  บันทึกข้อมูล
-
-                </button>
-
-              </div>
-
             </div>
-
           </div>
+        )}
 
-        </div>
+        {/* =====================================================
+            CHANGE PASSWORD MODAL
+        ===================================================== */}
 
-      )}
+        {showPasswordModal && (
+          <div
+            className="modal fade show d-block"
+            style={{
+              backgroundColor: "rgba(0,0,0,0.6)",
+              zIndex: 2000,
+            }}
+            onClick={() =>
+              !saving && setShowPasswordModal(false)
+            }
+          >
+            <div
+              className="modal-dialog modal-dialog-centered"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="modal-content border-0 rounded-4">
+                <div className="modal-header border-0 p-4">
+                  <div>
+                    <h4 className="fw-bold mb-1">
+                      เปลี่ยนรหัสผ่าน
+                    </h4>
 
+                    <small className="text-secondary">
+                      กรุณากรอกรหัสผ่านปัจจุบันก่อน
+                    </small>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="btn-close"
+                    disabled={saving}
+                    onClick={() =>
+                      setShowPasswordModal(false)
+                    }
+                  ></button>
+                </div>
+
+                <div className="modal-body px-4 pb-4">
+                  <PasswordInput
+                    label="รหัสผ่านปัจจุบัน"
+                    value={passwordForm.currentPassword}
+                    show={showCurrentPassword}
+                    onChange={(value) =>
+                      setPasswordForm({
+                        ...passwordForm,
+                        currentPassword: value,
+                      })
+                    }
+                    onToggle={() =>
+                      setShowCurrentPassword(
+                        !showCurrentPassword
+                      )
+                    }
+                    disabled={saving}
+                  />
+
+                  <PasswordInput
+                    label="รหัสผ่านใหม่"
+                    value={passwordForm.newPassword}
+                    show={showNewPassword}
+                    onChange={(value) =>
+                      setPasswordForm({
+                        ...passwordForm,
+                        newPassword: value,
+                      })
+                    }
+                    onToggle={() =>
+                      setShowNewPassword(
+                        !showNewPassword
+                      )
+                    }
+                    disabled={saving}
+                    helpText="อย่างน้อย 6 ตัวอักษร"
+                  />
+
+                  <PasswordInput
+                    label="ยืนยันรหัสผ่านใหม่"
+                    value={passwordForm.confirmPassword}
+                    show={showConfirmPassword}
+                    onChange={(value) =>
+                      setPasswordForm({
+                        ...passwordForm,
+                        confirmPassword: value,
+                      })
+                    }
+                    onToggle={() =>
+                      setShowConfirmPassword(
+                        !showConfirmPassword
+                      )
+                    }
+                    disabled={saving}
+                  />
+                </div>
+
+                <div className="modal-footer border-0 px-4 pb-4">
+                  <button
+                    className="btn btn-light rounded-pill px-4"
+                    disabled={saving}
+                    onClick={() =>
+                      setShowPasswordModal(false)
+                    }
+                  >
+                    ยกเลิก
+                  </button>
+
+                  <button
+                    className="btn text-white rounded-pill px-4"
+                    style={{
+                      background: "#6f42c1",
+                    }}
+                    disabled={saving}
+                    onClick={changePassword}
+                  >
+                    {saving ? (
+                      <>
+                        <span className="spinner-border spinner-border-sm me-2"></span>
+                        กำลังบันทึก...
+                      </>
+                    ) : (
+                      <>
+                        <i className="bi bi-key me-2"></i>
+                        เปลี่ยนรหัสผ่าน
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* =====================================================
+            FOOTER
+        ===================================================== */}
+
+        <footer
+          className="py-4 text-white"
+          style={{
+            background: "#17131f",
+          }}
+        >
+          <div className="container-fluid px-4 px-lg-5">
+            <div className="d-flex flex-column flex-md-row justify-content-between gap-3">
+              <div>
+                <div className="fw-bold">
+                  ระบบยืม–คืนครุภัณฑ์
+                </div>
+
+                <small className="text-white-50">
+                  คณะสังคมศาสตร์ มหาวิทยาลัยเชียงใหม่
+                </small>
+              </div>
+
+              <div className="text-white-50 small">
+                © 2026 Faculty of Social Sciences
+              </div>
+            </div>
+          </div>
+        </footer>
+      </main>
 
       {/* =====================================================
-          FOOTER
+          GLOBAL STYLE
       ===================================================== */}
 
-      <footer
-        className="py-4 text-white"
-        style={{
-          background: "#17131f",
-        }}
-      >
+      <style jsx global>{`
+        .profile-main-content {
+          margin-left: 270px;
+          min-height: 100vh;
+          transition: margin-left 0.25s ease;
+        }
 
-        <div className="container">
+        .profile-swal-confirm {
+          border: none !important;
+          background: #6f42c1 !important;
+          color: white !important;
+          padding: 10px 22px !important;
+          border-radius: 10px !important;
+          font-weight: 600 !important;
+          margin: 0 5px !important;
+        }
 
-          <div className="d-flex flex-column flex-md-row justify-content-between gap-3">
+        .profile-swal-confirm:hover {
+          background: #5a32a3 !important;
+        }
 
-            <div>
+        .profile-swal-cancel {
+          border: none !important;
+          background: #e9ecef !important;
+          color: #495057 !important;
+          padding: 10px 22px !important;
+          border-radius: 10px !important;
+          font-weight: 600 !important;
+          margin: 0 5px !important;
+        }
 
-              <div className="fw-bold">
+        .profile-swal-cancel:hover {
+          background: #dee2e6 !important;
+        }
 
-                ระบบยืม–คืนครุภัณฑ์
-
-              </div>
-
-              <small className="text-white-50">
-
-                คณะสังคมศาสตร์ มหาวิทยาลัยเชียงใหม่
-
-              </small>
-
-            </div>
-
-
-            <div className="text-white-50 small">
-
-              © 2026 Faculty of Social Sciences
-
-            </div>
-
-          </div>
-
-        </div>
-
-      </footer>
-
-    </main>
+        @media (max-width: 991.98px) {
+          .profile-main-content {
+            margin-left: 0;
+            padding-top: 64px;
+          }
+        }
+      `}</style>
+    </>
   );
 }
 
+// =====================================================
+// PROFILE FIELD
+// =====================================================
 
-/* =====================================================
-   PROFILE STAT
-===================================================== */
-
-function ProfileStat({
+function ProfileField({
   icon,
-  number,
   title,
-  color,
+  value,
+  last = false,
 }: {
   icon: string;
-  number: string;
   title: string;
-  color: string;
+  value: string;
+  last?: boolean;
 }) {
-
   return (
-
-    <div className="col-6 col-xl-3">
-
-      <div className="card border-0 shadow-sm rounded-4 h-100">
-
-        <div className="card-body p-3">
-
-          <div className="d-flex align-items-center gap-3">
-
-            <div
-              className="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
-              style={{
-                width: "45px",
-                height: "45px",
-                background: `${color}15`,
-                color: color,
-              }}
-            >
-
-              <i className={icon}></i>
-
-            </div>
-
-
-            <div>
-
-              <div className="fs-4 fw-bold">
-
-                {number}
-
-              </div>
-
-              <small className="text-secondary">
-
-                {title}
-
-              </small>
-
-            </div>
-
-          </div>
-
+    <div
+      className={
+        last ? "" : "border-bottom pb-3 mb-3"
+      }
+    >
+      <div className="d-flex align-items-start gap-3">
+        <div
+          className="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
+          style={{
+            width: "42px",
+            height: "42px",
+            background: "#eee8ff",
+            color: "#6f42c1",
+          }}
+        >
+          <i className={`bi ${icon}`}></i>
         </div>
 
-      </div>
+        <div className="flex-grow-1">
+          <small className="text-secondary">
+            {title}
+          </small>
 
+          <div className="fw-semibold mt-1 text-break">
+            {value}
+          </div>
+        </div>
+      </div>
     </div>
   );
+}
+
+// =====================================================
+// PASSWORD INPUT
+// =====================================================
+
+function PasswordInput({
+  label,
+  value,
+  show,
+  onChange,
+  onToggle,
+  disabled,
+  helpText,
+}: {
+  label: string;
+  value: string;
+  show: boolean;
+  onChange: (value: string) => void;
+  onToggle: () => void;
+  disabled: boolean;
+  helpText?: string;
+}) {
+  return (
+    <div className="mb-3">
+      <label className="form-label fw-semibold">
+        {label}
+      </label>
+
+      <div className="input-group">
+        <input
+          type={show ? "text" : "password"}
+          className="form-control"
+          value={value}
+          onChange={(e) =>
+            onChange(e.target.value)
+          }
+          disabled={disabled}
+        />
+
+        <button
+          type="button"
+          className="btn btn-outline-secondary"
+          onClick={onToggle}
+          disabled={disabled}
+        >
+          <i
+            className={`bi ${
+              show
+                ? "bi-eye-slash"
+                : "bi-eye"
+            }`}
+          ></i>
+        </button>
+      </div>
+
+      {helpText && (
+        <small className="text-secondary">
+          {helpText}
+        </small>
+      )}
+    </div>
+  );
+}
+
+// =====================================================
+// FORMAT DATE
+// =====================================================
+
+function formatDate(value: string) {
+  if (!value) return "-";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleString("th-TH", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
