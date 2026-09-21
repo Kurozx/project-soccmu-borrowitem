@@ -198,37 +198,68 @@ export async function POST(
        เพิ่มจำนวนที่พร้อมใช้งานกลับ
     ------------------------------------------------------- */
 
-    await connection.execute(
-      `
-      UPDATE equipment
+    const [equipmentRows] =
+      await connection.execute(
+        `
+        SELECT
+          quantity,
+          available_quantity,
+          status
 
-      SET
-        available_quantity =
-          LEAST(
-            quantity,
-            available_quantity + ?
-          ),
+        FROM equipment
 
-        status =
-          CASE
-            WHEN available_quantity + ? >= quantity
-              THEN 'available'
-            WHEN available_quantity + ? > 0
-              THEN 'borrowed'
-            ELSE status
-          END,
+        WHERE id = ?
 
-        updated_at = CURRENT_TIMESTAMP
+        FOR UPDATE
+        `,
+        [borrowing.equipment_id]
+      );
 
-      WHERE id = ?
-      `,
-      [
-        borrowing.quantity,
-        borrowing.quantity,
-        borrowing.quantity,
-        borrowing.equipment_id,
-      ]
-    );
+    const equipment = (
+      equipmentRows as {
+        quantity: number;
+        available_quantity: number;
+        status: string;
+      }[]
+    )[0];
+
+    if (equipment) {
+      // คำนวณค่าใหม่เองจากแถวที่ lock ไว้
+      // (ไม่พึ่งลำดับการ SET ของ SQL)
+      const newAvailable = Math.min(
+        Number(equipment.quantity),
+        Number(equipment.available_quantity) +
+          Number(borrowing.quantity)
+      );
+
+      // ซ่อมบำรุง / ปิดใช้งาน ให้คงสถานะเดิมไว้
+      const newStatus =
+        ["maintenance", "inactive", "damaged", "lost"].includes(
+          equipment.status
+        )
+          ? equipment.status
+          : newAvailable > 0
+            ? "available"
+            : "borrowed";
+
+      await connection.execute(
+        `
+        UPDATE equipment
+
+        SET
+          available_quantity = ?,
+          status = ?,
+          updated_at = CURRENT_TIMESTAMP
+
+        WHERE id = ?
+        `,
+        [
+          newAvailable,
+          newStatus,
+          borrowing.equipment_id,
+        ]
+      );
+    }
 
     /* -------------------------------------------------------
        ACTIVITY LOG

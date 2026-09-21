@@ -18,9 +18,12 @@ type EquipmentRow = {
     | "available"
     | "borrowed"
     | "maintenance"
-    | "inactive";
+    | "inactive"
+    | "damaged"
+    | "lost";
   image_url: string | null;
   category_name: string | null;
+  category_image_url: string | null;
 };
 
 export default async function EquipmentPage() {
@@ -55,7 +58,8 @@ export default async function EquipmentPage() {
         e.available_quantity,
         e.status,
         e.image_url,
-        c.name AS category_name
+        c.name AS category_name,
+        c.image_url AS category_image_url
       FROM equipment e
       LEFT JOIN equipment_categories c
         ON e.category_id = c.id
@@ -103,6 +107,10 @@ export default async function EquipmentPage() {
 
     imageUrl:
       item.image_url || null,
+
+    // ใช้เป็นรูปสำรองเมื่อครุภัณฑ์ยังไม่มีรูป
+    categoryImageUrl:
+      item.category_image_url || null,
   }));
 
   // ================================

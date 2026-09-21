@@ -13,6 +13,10 @@ export const db =
   mysql.createPool({
     uri: process.env.DATABASE_URL,
 
+    // TiDB เก็บเวลาเป็น UTC (NOW() = UTC)
+    // ให้ mysql2 อ่าน/เขียน DATETIME เป็น UTC ด้วย ไม่งั้นเวลาจะเพี้ยน 7 ชั่วโมง
+    timezone: "Z",
+
     ssl: {
       minVersion: "TLSv1.2",
       rejectUnauthorized: true,

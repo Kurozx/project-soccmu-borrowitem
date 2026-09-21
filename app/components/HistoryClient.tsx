@@ -6,6 +6,15 @@ import {
 } from "react";
 
 import UserNavbar from "@/app/components/UserNavbar";
+import {
+  PageHeader,
+  Panel,
+  Pill,
+  StatCard,
+  Toolbar,
+  type Tone,
+} from "@/app/components/ui";
+import BorrowingPhotos from "@/app/components/BorrowingPhotos";
 
 import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap-icons/font/bootstrap-icons.css";
@@ -174,88 +183,66 @@ export default function HistoryClient({
 
       <main className="history-main">
 
-        <div className="container-fluid px-4 py-4">
+        <div className="ui-page">
 
           {/* =================================================
               HEADER
           ================================================= */}
 
-          <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
-
-            <div>
-              <h2 className="fw-bold mb-1">
-                ประวัติการยืม–คืน
-              </h2>
-
-              <p className="text-secondary mb-0">
-                ประวัติการยืมและคืนครุภัณฑ์ของคุณ
-              </p>
-            </div>
-
-            <div className="history-header-icon">
-              <i className="bi bi-clock-history" />
-            </div>
-
-          </div>
+          <PageHeader
+            eyebrow="ประวัติ"
+            title="ประวัติการยืม–คืน"
+            description="ประวัติการยืมและคืนครุภัณฑ์ของคุณ"
+          />
 
           {/* =================================================
               STATISTICS
           ================================================= */}
 
-          <div className="row g-3 mb-4">
+          <div className="row g-3">
 
             <div className="col-6 col-xl">
-              <HistoryStat
+              <StatCard
                 icon="bi-journal-text"
-                title="ทั้งหมด"
-                value={
-                  statistics.total
-                }
-                type="purple"
+                label="ทั้งหมด"
+                value={statistics.total.toLocaleString()}
+                tone="purple"
               />
             </div>
 
             <div className="col-6 col-xl">
-              <HistoryStat
+              <StatCard
                 icon="bi-arrow-repeat"
-                title="กำลังยืม"
-                value={
-                  statistics.borrowing
-                }
-                type="blue"
+                label="กำลังยืม"
+                value={statistics.borrowing.toLocaleString()}
+                tone="blue"
               />
             </div>
 
             <div className="col-6 col-xl">
-              <HistoryStat
+              <StatCard
                 icon="bi-check-circle"
-                title="คืนแล้ว"
-                value={
-                  statistics.returned
-                }
-                type="green"
+                label="คืนแล้ว"
+                value={statistics.returned.toLocaleString()}
+                tone="emerald"
               />
             </div>
 
             <div className="col-6 col-xl">
-              <HistoryStat
+              <StatCard
                 icon="bi-hourglass-split"
-                title="รออนุมัติ"
-                value={
-                  statistics.pending
-                }
-                type="orange"
+                label="รออนุมัติ"
+                value={statistics.pending.toLocaleString()}
+                tone="amber"
               />
             </div>
 
             <div className="col-12 col-xl">
-              <HistoryStat
+              <StatCard
                 icon="bi-x-circle"
-                title="ไม่อนุมัติ"
-                value={
-                  statistics.rejected
-                }
-                type="red"
+                label="ไม่อนุมัติ"
+                value={statistics.rejected.toLocaleString()}
+                tone="rose"
               />
             </div>
 
@@ -265,162 +252,129 @@ export default function HistoryClient({
               SEARCH / FILTER
           ================================================= */}
 
-          <div className="card border-0 shadow-sm mb-4 history-filter-card">
+          <Toolbar>
 
-            <div className="card-body">
+            {/* SEARCH */}
 
-              <div className="row g-3">
+            <div className="history-search">
 
-                {/* SEARCH */}
+              <i className="bi bi-search" />
 
-                <div className="col-lg-6">
-
-                  <label className="form-label fw-semibold">
-                    ค้นหาประวัติ
-                  </label>
-
-                  <div className="input-group">
-
-                    <span className="input-group-text bg-white">
-                      <i className="bi bi-search" />
-                    </span>
-
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="ค้นหาชื่อครุภัณฑ์ รหัส หรือเลขรายการ..."
-                      value={search}
-                      onChange={(e) =>
-                        setSearch(
-                          e.target.value
-                        )
-                      }
-                    />
-
-                  </div>
-
-                </div>
-
-                {/* STATUS */}
-
-                <div className="col-lg-4">
-
-                  <label className="form-label fw-semibold">
-                    สถานะ
-                  </label>
-
-                  <select
-                    className="form-select"
-                    value={status}
-                    onChange={(e) =>
-                      setStatus(
-                        e.target.value
-                      )
-                    }
-                  >
-
-                    <option value="ทั้งหมด">
-                      ทั้งหมด
-                    </option>
-
-                    <option value="pending">
-                      รออนุมัติ
-                    </option>
-
-                    <option value="approved">
-                      อนุมัติแล้ว
-                    </option>
-
-                    <option value="borrowed">
-                      กำลังยืม
-                    </option>
-
-                    <option value="returned">
-                      คืนแล้ว
-                    </option>
-
-                    <option value="rejected">
-                      ไม่อนุมัติ
-                    </option>
-
-                    <option value="overdue">
-                      เกินกำหนด
-                    </option>
-
-                  </select>
-
-                </div>
-
-                {/* RESET */}
-
-                <div className="col-lg-2 d-flex align-items-end">
-
-                  <button
-                    type="button"
-                    className="btn btn-outline-secondary w-100"
-                    onClick={
-                      resetFilter
-                    }
-                  >
-                    <i className="bi bi-arrow-clockwise me-2" />
-                    ล้างตัวกรอง
-                  </button>
-
-                </div>
-
-              </div>
-
-            </div>
-
-          </div>
-
-          {/* =================================================
-              RESULT COUNT
-          ================================================= */}
-
-          <div className="d-flex justify-content-between align-items-center mb-3">
-
-            <div className="text-secondary">
-              แสดง{" "}
-              <strong className="text-dark">
-                {
-                  filteredItems.length
+              <input
+                type="text"
+                className="form-control"
+                aria-label="ค้นหาประวัติ"
+                placeholder="ค้นหาชื่อครุภัณฑ์ รหัส หรือเลขรายการ..."
+                value={search}
+                onChange={(e) =>
+                  setSearch(
+                    e.target.value
+                  )
                 }
-              </strong>{" "}
-              จาก{" "}
-              <strong className="text-dark">
-                {items.length}
-              </strong>{" "}
-              รายการ
+              />
+
             </div>
 
-          </div>
+            {/* STATUS */}
+
+            <select
+              className="form-select history-status-select"
+              aria-label="สถานะ"
+              value={status}
+              onChange={(e) =>
+                setStatus(
+                  e.target.value
+                )
+              }
+            >
+
+              <option value="ทั้งหมด">
+                ทั้งหมด
+              </option>
+
+              <option value="pending">
+                รออนุมัติ
+              </option>
+
+              <option value="approved">
+                อนุมัติแล้ว
+              </option>
+
+              <option value="borrowed">
+                กำลังยืม
+              </option>
+
+              <option value="returned">
+                คืนแล้ว
+              </option>
+
+              <option value="rejected">
+                ไม่อนุมัติ
+              </option>
+
+              <option value="overdue">
+                เกินกำหนด
+              </option>
+
+            </select>
+
+            {/* RESET */}
+
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-secondary"
+              onClick={
+                resetFilter
+              }
+            >
+              <i className="bi bi-arrow-clockwise me-2" />
+              ล้างตัวกรอง
+            </button>
+
+          </Toolbar>
 
           {/* =================================================
-              EMPTY
+              HISTORY LIST
           ================================================= */}
 
-          {filteredItems.length ===
-          0 ? (
-            <div className="card border-0 shadow-sm history-empty">
+          <Panel
+            title="รายการประวัติ"
+            description={
+              <>
+                แสดง{" "}
+                <strong className="text-dark">
+                  {
+                    filteredItems.length
+                  }
+                </strong>{" "}
+                จาก{" "}
+                <strong className="text-dark">
+                  {items.length}
+                </strong>{" "}
+                รายการ
+              </>
+            }
+          >
 
-              <div className="card-body text-center py-5">
+            {filteredItems.length ===
+            0 ? (
+              <div className="history-empty">
 
                 <div className="history-empty-icon">
                   <i className="bi bi-clock-history" />
                 </div>
 
-                <h5 className="fw-bold mt-3">
+                <p className="history-empty-title">
                   ไม่พบประวัติ
-                </h5>
+                </p>
 
-                <p className="text-secondary mb-3">
+                <p className="history-empty-text">
                   ยังไม่มีรายการที่ตรงกับเงื่อนไข
                 </p>
 
                 <button
                   type="button"
-                  className="btn btn-outline-primary"
+                  className="btn btn-sm btn-outline-secondary"
                   onClick={
                     resetFilter
                   }
@@ -429,23 +383,13 @@ export default function HistoryClient({
                 </button>
 
               </div>
+            ) : (
+              <div className="d-flex flex-column gap-3">
 
-            </div>
-          ) : (
-            /* =================================================
-               HISTORY LIST
-            ================================================= */
-
-            <div className="row g-3">
-
-              {filteredItems.map(
-                (item) => (
-                  <div
-                    className="col-12"
-                    key={item.id}
-                  >
-
+                {filteredItems.map(
+                  (item) => (
                     <HistoryCard
+                      key={item.id}
                       item={item}
                       formatDate={
                         formatDate
@@ -456,13 +400,13 @@ export default function HistoryClient({
                         )
                       }
                     />
+                  )
+                )}
 
-                  </div>
-                )
-              )}
+              </div>
+            )}
 
-            </div>
-          )}
+          </Panel>
 
         </div>
       </main>
@@ -490,131 +434,105 @@ export default function HistoryClient({
         .history-main {
           margin-left: 270px;
           min-height: 100vh;
-          background: #f7f7fb;
+          background: #fafafa;
         }
 
-        .history-header-icon {
-          width: 54px;
-          height: 54px;
-          border-radius: 16px;
-          background: #eee8fa;
-          color: #6f42c1;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 24px;
+        .history-search {
+          position: relative;
+          flex: 1 1 260px;
+          min-width: 0;
         }
 
-        .history-filter-card {
-          border-radius: 16px;
+        .history-search > i {
+          position: absolute;
+          top: 50%;
+          left: 12px;
+          transform: translateY(-50%);
+          color: #a3a3a3;
+          font-size: 14px;
+          pointer-events: none;
         }
 
-        .history-stat-card {
-          background: #ffffff;
-          border-radius: 16px;
-          padding: 20px;
-          height: 100%;
-          box-shadow:
-            0 4px 18px
-            rgba(0, 0, 0, 0.05);
+        .history-search .form-control {
+          padding-left: 34px;
         }
 
-        .history-stat-icon {
-          width: 48px;
-          height: 48px;
-          border-radius: 14px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 21px;
-        }
-
-        .history-stat-icon.purple {
-          background: #eee8fa;
-          color: #6f42c1;
-        }
-
-        .history-stat-icon.blue {
-          background: #e7f1ff;
-          color: #0d6efd;
-        }
-
-        .history-stat-icon.green {
-          background: #e8f7ee;
-          color: #198754;
-        }
-
-        .history-stat-icon.orange {
-          background: #fff2df;
-          color: #fd7e14;
-        }
-
-        .history-stat-icon.red {
-          background: #fde8ea;
-          color: #dc3545;
+        .history-status-select {
+          width: auto;
+          min-width: 160px;
         }
 
         .history-empty {
-          border-radius: 20px;
+          padding: 40px 20px;
+          text-align: center;
         }
 
         .history-empty-icon {
-          width: 80px;
-          height: 80px;
-          border-radius: 50%;
-          background: #f0eaff;
-          color: #6f42c1;
+          width: 48px;
+          height: 48px;
+          border-radius: 12px;
+          background: #f5f5f5;
+          color: #737373;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 38px;
-          margin: auto;
+          font-size: 22px;
+          margin: 0 auto 14px;
+        }
+
+        .history-empty-title {
+          margin: 0 0 4px;
+          font-size: 15px;
+          font-weight: 600;
+          color: #171717;
+        }
+
+        .history-empty-text {
+          margin: 0 0 16px;
+          font-size: 13px;
+          color: #737373;
         }
 
         .history-card {
           background: #ffffff;
-          border: 0;
-          border-radius: 18px;
-          box-shadow:
-            0 4px 18px
-            rgba(0, 0, 0, 0.05);
+          border: 1px solid #e4e4e4;
+          border-radius: 12px;
+          padding: 16px 18px;
           transition:
-            transform 0.2s ease,
-            box-shadow 0.2s ease;
+            border-color 0.15s ease,
+            box-shadow 0.15s ease;
           cursor: pointer;
         }
 
         .history-card:hover {
-          transform:
-            translateY(-2px);
-
-          box-shadow:
-            0 8px 24px
-            rgba(0, 0, 0, 0.08);
+          border-color: #d4d4d4;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
         }
 
         .history-card-icon {
-          width: 58px;
-          height: 58px;
-          border-radius: 15px;
-          background: #f0eaff;
+          width: 40px;
+          height: 40px;
+          border-radius: 8px;
+          background: #f3efff;
           color: #6f42c1;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 25px;
+          font-size: 18px;
           flex-shrink: 0;
         }
 
         .history-code {
-          color: #6f42c1;
+          color: #737373;
           font-size: 12px;
-          font-weight: 700;
+          font-weight: 600;
+          font-family: var(--font-geist-mono, ui-monospace, monospace);
         }
 
         .history-equipment-name {
-          font-size: 18px;
-          font-weight: 700;
+          font-size: 15px;
+          font-weight: 600;
+          color: #171717;
         }
 
         .history-info {
@@ -622,85 +540,72 @@ export default function HistoryClient({
           align-items: center;
           gap: 7px;
           font-size: 13px;
-          color: #6c757d;
+          color: #737373;
         }
 
         .history-info i {
-          color: #6f42c1;
+          color: #a3a3a3;
         }
 
         .history-date-box {
           min-width: 180px;
-          background: #f8f9fa;
-          border-radius: 13px;
-          padding: 12px 15px;
+          background: #fafafa;
+          border: 1px solid #f0f0f0;
+          border-radius: 8px;
+          padding: 10px 14px;
         }
 
         .history-date-label {
-          font-size: 12px;
-          color: #6c757d;
+          font-size: 11px;
+          color: #737373;
         }
 
         .history-date-value {
           font-size: 13px;
           font-weight: 600;
+          color: #171717;
         }
 
-        .history-status {
-          display: inline-flex;
-          align-items: center;
-          padding: 6px 11px;
-          border-radius: 20px;
-          font-size: 12px;
-          font-weight: 700;
-          white-space: nowrap;
+        .history-modal-content {
+          border: 1px solid #e4e4e4;
+          border-radius: 12px;
+          box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
         }
 
-        .history-status.pending {
-          background: #fff3cd;
-          color: #997404;
-        }
-
-        .history-status.approved {
-          background: #e7f1ff;
-          color: #0d6efd;
-        }
-
-        .history-status.borrowed {
-          background: #e8f7ee;
-          color: #198754;
-        }
-
-        .history-status.returned {
-          background: #e8f7ee;
-          color: #146c43;
-        }
-
-        .history-status.rejected {
-          background: #fde8ea;
-          color: #dc3545;
-        }
-
-        .history-status.overdue {
-          background: #fde8ea;
-          color: #b02a37;
+        .history-modal-content .modal-header,
+        .history-modal-content .modal-footer {
+          border-color: #e4e4e4;
         }
 
         .history-modal-icon {
-          width: 70px;
-          height: 70px;
-          border-radius: 18px;
-          background: #f0eaff;
+          width: 40px;
+          height: 40px;
+          border-radius: 8px;
+          background: #f3efff;
           color: #6f42c1;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 32px;
+          font-size: 18px;
+        }
+
+        .history-detail-box {
+          height: 100%;
+          padding: 12px 14px;
+          border: 1px solid #f0f0f0;
+          border-radius: 8px;
+          background: #fafafa;
+        }
+
+        .history-detail-label {
+          margin-bottom: 2px;
+          font-size: 12px;
+          color: #737373;
         }
 
         .history-detail-row {
           padding: 13px 0;
-          border-bottom: 1px solid #eeeeee;
+          border-bottom: 1px solid #f0f0f0;
         }
 
         .history-detail-row:last-child {
@@ -723,61 +628,14 @@ export default function HistoryClient({
             min-width: 0;
           }
 
+          .history-status-select {
+            flex: 1 1 auto;
+          }
+
         }
 
       `}</style>
     </>
-  );
-}
-
-/* =========================================================
-   STAT CARD
-========================================================= */
-
-function HistoryStat({
-  icon,
-  title,
-  value,
-  type,
-}: {
-  icon: string;
-  title: string;
-  value: number;
-  type:
-    | "purple"
-    | "blue"
-    | "green"
-    | "orange"
-    | "red";
-}) {
-  return (
-    <div className="history-stat-card">
-
-      <div className="d-flex align-items-center gap-3">
-
-        <div
-          className={`history-stat-icon ${type}`}
-        >
-          <i
-            className={`bi ${icon}`}
-          />
-        </div>
-
-        <div>
-
-          <div className="small text-secondary">
-            {title}
-          </div>
-
-          <div className="fs-4 fw-bold">
-            {value.toLocaleString()}
-          </div>
-
-        </div>
-
-      </div>
-
-    </div>
   );
 }
 
@@ -802,139 +660,135 @@ function HistoryCard({
       onClick={onClick}
     >
 
-      <div className="p-4">
+      <div className="row align-items-center g-3">
 
-        <div className="row align-items-center g-3">
+        {/* ICON */}
 
-          {/* ICON */}
+        <div className="col-auto">
 
-          <div className="col-auto">
+          <div className="history-card-icon">
+            <i className="bi bi-box-seam" />
+          </div>
 
-            <div className="history-card-icon">
-              <i className="bi bi-box-seam" />
-            </div>
+        </div>
+
+        {/* INFO */}
+
+        <div className="col">
+
+          <div className="d-flex flex-wrap align-items-center gap-2 mb-1">
+
+            <span className="history-code">
+              {item.borrowId}
+            </span>
+
+            <HistoryStatus
+              status={
+                item.status
+              }
+            />
 
           </div>
 
-          {/* INFO */}
-
-          <div className="col">
-
-            <div className="d-flex flex-wrap align-items-center gap-2 mb-1">
-
-              <span className="history-code">
-                {item.borrowId}
-              </span>
-
-              <HistoryStatus
-                status={
-                  item.status
-                }
-              />
-
-            </div>
-
-            <div className="history-equipment-name mb-2">
-              {item.name}
-            </div>
-
-            <div className="row g-2">
-
-              <div className="col-md-6">
-
-                <div className="history-info">
-                  <i className="bi bi-upc-scan" />
-
-                  {item.equipmentCode}
-                </div>
-
-              </div>
-
-              <div className="col-md-6">
-
-                <div className="history-info">
-                  <i className="bi bi-tag" />
-
-                  {item.category}
-                </div>
-
-              </div>
-
-              <div className="col-md-6">
-
-                <div className="history-info">
-                  <i className="bi bi-calendar-check" />
-
-                  ยืม{" "}
-                  {formatDate(
-                    item.borrowDate
-                  )}
-                </div>
-
-              </div>
-
-              <div className="col-md-6">
-
-                <div className="history-info">
-                  <i className="bi bi-box" />
-
-                  จำนวน{" "}
-                  {item.quantity} รายการ
-                </div>
-
-              </div>
-
-            </div>
-
+          <div className="history-equipment-name mb-2">
+            {item.name}
           </div>
 
-          {/* DATES */}
+          <div className="row g-2">
 
-          <div className="col-12 col-lg-auto">
+            <div className="col-md-6">
 
-            <div className="history-date-box">
+              <div className="history-info">
+                <i className="bi bi-upc-scan" />
 
-              <div className="history-date-label">
-                กำหนดคืน
+                {item.equipmentCode}
               </div>
 
-              <div className="history-date-value">
+            </div>
+
+            <div className="col-md-6">
+
+              <div className="history-info">
+                <i className="bi bi-tag" />
+
+                {item.category}
+              </div>
+
+            </div>
+
+            <div className="col-md-6">
+
+              <div className="history-info">
+                <i className="bi bi-calendar-check" />
+
+                ยืม{" "}
                 {formatDate(
-                  item.dueDate
-                )}
-              </div>
-
-              <div className="history-date-label mt-2">
-                วันที่คืน
-              </div>
-
-              <div className="history-date-value">
-                {formatDate(
-                  item.returnDate
+                  item.borrowDate
                 )}
               </div>
 
             </div>
 
-          </div>
+            <div className="col-md-6">
 
-          {/* DETAIL BUTTON */}
+              <div className="history-info">
+                <i className="bi bi-box" />
 
-          <div className="col-12 col-lg-auto">
+                จำนวน{" "}
+                {item.quantity} รายการ
+              </div>
 
-            <button
-              type="button"
-              className="btn btn-outline-primary px-4"
-              onClick={(e) => {
-                e.stopPropagation();
-                onClick();
-              }}
-            >
-              <i className="bi bi-eye me-2" />
-              รายละเอียด
-            </button>
+            </div>
 
           </div>
+
+        </div>
+
+        {/* DATES */}
+
+        <div className="col-12 col-lg-auto">
+
+          <div className="history-date-box">
+
+            <div className="history-date-label">
+              กำหนดคืน
+            </div>
+
+            <div className="history-date-value">
+              {formatDate(
+                item.dueDate
+              )}
+            </div>
+
+            <div className="history-date-label mt-2">
+              วันที่คืน
+            </div>
+
+            <div className="history-date-value">
+              {formatDate(
+                item.returnDate
+              )}
+            </div>
+
+          </div>
+
+        </div>
+
+        {/* DETAIL BUTTON */}
+
+        <div className="col-12 col-lg-auto">
+
+          <button
+            type="button"
+            className="btn btn-sm btn-outline-secondary px-3"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClick();
+            }}
+          >
+            <i className="bi bi-eye me-2" />
+            รายละเอียด
+          </button>
 
         </div>
 
@@ -957,37 +811,37 @@ function HistoryStatus({
     HistoryStatus,
     {
       text: string;
-      className: string;
+      tone: Tone;
     }
   > = {
     pending: {
       text: "รออนุมัติ",
-      className: "pending",
+      tone: "amber",
     },
 
     approved: {
       text: "อนุมัติแล้ว",
-      className: "approved",
+      tone: "purple",
     },
 
     borrowed: {
       text: "กำลังยืม",
-      className: "borrowed",
+      tone: "blue",
     },
 
     returned: {
       text: "คืนแล้ว",
-      className: "returned",
+      tone: "emerald",
     },
 
     rejected: {
       text: "ไม่อนุมัติ",
-      className: "rejected",
+      tone: "neutral",
     },
 
     overdue: {
       text: "เกินกำหนด",
-      className: "overdue",
+      tone: "rose",
     },
   };
 
@@ -995,11 +849,9 @@ function HistoryStatus({
     config[status];
 
   return (
-    <span
-      className={`history-status ${current.className}`}
-    >
+    <Pill tone={current.tone}>
       {current.text}
-    </span>
+    </Pill>
   );
 }
 
@@ -1025,20 +877,20 @@ function HistoryModal({
       role="dialog"
       style={{
         backgroundColor:
-          "rgba(0,0,0,0.55)",
+          "rgba(0,0,0,0.45)",
         zIndex: 2100,
       }}
       onClick={onClose}
     >
 
       <div
-        className="modal-dialog modal-lg modal-dialog-centered"
+        className="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable"
         onClick={(e) =>
           e.stopPropagation()
         }
       >
 
-        <div className="modal-content border-0 shadow-lg rounded-4">
+        <div className="modal-content history-modal-content">
 
           {/* HEADER */}
 
@@ -1052,7 +904,7 @@ function HistoryModal({
 
               <div>
 
-                <h5 className="modal-title fw-bold mb-1">
+                <h5 className="modal-title fs-6 fw-semibold mb-0">
                   รายละเอียดการยืม–คืน
                 </h5>
 
@@ -1084,7 +936,7 @@ function HistoryModal({
                 ครุภัณฑ์
               </div>
 
-              <h4 className="fw-bold mb-2">
+              <h4 className="fs-5 fw-semibold mb-2">
                 {item.name}
               </h4>
 
@@ -1092,7 +944,6 @@ function HistoryModal({
                 status={
                   item.status
                 }
-
               />
 
             </div>
@@ -1179,6 +1030,20 @@ function HistoryModal({
               </div>
             )}
 
+            {/* PHOTOS */}
+
+            <BorrowingPhotos
+              borrowingId={item.id}
+              uploadKinds={
+                item.status === "approved" ||
+                item.status === "borrowed" ||
+                item.status === "overdue"
+                  ? ["borrow"]
+                  : []
+              }
+              allowDelete
+            />
+
           </div>
 
           {/* FOOTER */}
@@ -1187,7 +1052,7 @@ function HistoryModal({
 
             <button
               type="button"
-              className="btn btn-secondary"
+              className="btn btn-sm btn-outline-secondary"
               onClick={onClose}
             >
               ปิด
@@ -1217,13 +1082,13 @@ function DetailItem({
   return (
     <div className="col-md-6">
 
-      <div className="bg-light rounded-3 p-3 h-100">
+      <div className="history-detail-box">
 
-        <div className="small text-secondary mb-1">
+        <div className="history-detail-label">
           {label}
         </div>
 
-        <div className="fw-semibold">
+        <div className="fw-semibold small">
           {value}
         </div>
 

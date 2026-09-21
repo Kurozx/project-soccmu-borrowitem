@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "demo:seed": "node --env-file=.env.local scripts/demo-data.mjs seed",
+    "demo:clear": "node --env-file=.env.local scripts/demo-data.mjs clear"
   },
   "dependencies": {
     "@tidbcloud/serverless": "^0.3.0",
@@ -14,6 +16,7 @@
     "bcryptjs": "^3.0.3",
     "bootstrap": "^5.3.8",
     "bootstrap-icons": "^1.13.1",
+    "html5-qrcode": "^2.3.8",
     "mysql2": "^3.24.4",
     "next": "16.3.4",
     "next-auth": "^5.0.0-beta.32",

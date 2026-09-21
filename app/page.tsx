@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
+import { Panel, StatCard, type Tone } from "@/app/components/ui";
+
 import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap-icons/font/bootstrap-icons.css";
 
@@ -138,414 +140,113 @@ export default function Home() {
   // RENDER
   // =====================================================
 
+  const statValue = (value: number) =>
+    statsLoading ? "..." : formatNumber(value);
+
   return (
-    <main className="bg-light min-vh-100">
-      {/* ================= NAVBAR ================= */}
+    <main className="home-page">
+      {/* ================= TOP BAR ================= */}
 
-      <nav className="navbar navbar-expand-lg bg-white border-bottom sticky-top">
-        <div className="container py-2">
-          {/* LOGO */}
-
-          <Link
-            className="navbar-brand d-flex align-items-center gap-3"
-            href="/"
-          >
-            <div
-              className="d-flex align-items-center justify-content-center rounded-3"
-              style={{
-                width: "48px",
-                height: "48px",
-                background: "#6f42c1",
-                color: "white",
-              }}
-            >
-              <span className="fw-bold">
-                CMU
-              </span>
-            </div>
-
-            <div>
-              <div className="fw-bold text-dark">
+      <header className="home-topbar">
+        <div className="home-container home-topbar-inner">
+          <Link href="/" className="home-brand">
+            <span className="home-logo">CMU</span>
+            <span className="home-brand-text">
+              <span className="home-brand-name">
                 ระบบยืม–คืนครุภัณฑ์
-              </div>
-
-              <small className="text-secondary">
+              </span>
+              <span className="home-brand-sub">
                 คณะสังคมศาสตร์ มหาวิทยาลัยเชียงใหม่
-              </small>
-            </div>
+              </span>
+            </span>
           </Link>
 
-          {/* MOBILE MENU BUTTON */}
+          <nav className="home-nav">
+            <Link href="/" className="home-nav-link active">
+              หน้าหลัก
+            </Link>
 
-          <button
-            className="navbar-toggler"
-            type="button"
-            data-bs-toggle="collapse"
-            data-bs-target="#mainNavbar"
-            aria-controls="mainNavbar"
-            aria-expanded="false"
-            aria-label="Toggle navigation"
-          >
-            <span className="navbar-toggler-icon"></span>
-          </button>
+            <Link href="/login" className="home-nav-link">
+              ครุภัณฑ์
+            </Link>
 
-          {/* NAVIGATION */}
+            <span className="home-nav-sep" aria-hidden="true" />
 
-          <div
-            className="collapse navbar-collapse"
-            id="mainNavbar"
-          >
-            <ul className="navbar-nav ms-auto align-items-lg-center gap-lg-2">
-              {/* HOME */}
+            <Link
+              href="/register"
+              className="btn btn-outline-secondary home-btn d-none d-sm-inline-flex"
+            >
+              สมัครสมาชิก
+            </Link>
 
-              <li className="nav-item">
-                <Link
-                  className="nav-link active"
-                  href="/"
-                >
-                  <i className="bi bi-house me-1"></i>
-                  หน้าหลัก
-                </Link>
-              </li>
-
-              {/* EQUIPMENT */}
-
-              <li className="nav-item">
-                <Link
-                  href="/login"
-                  className="nav-link"
-                >
-                  <i className="bi bi-box me-1"></i>
-                  ครุภัณฑ์
-                </Link>
-              </li>
-
-              {/* LOGIN */}
-
-              <li className="nav-item ms-lg-2">
-                <Link
-                  href="/login"
-                  className="btn btn-outline-dark rounded-pill px-4"
-                >
-                  <i className="bi bi-person me-1"></i>
-                  เข้าสู่ระบบ
-                </Link>
-              </li>
-            </ul>
-          </div>
+            <Link href="/login" className="btn btn-primary home-btn">
+              เข้าสู่ระบบ
+            </Link>
+          </nav>
         </div>
-      </nav>
+      </header>
 
       {/* ================= HERO ================= */}
 
-      <section
-        className="py-5"
-        style={{
-          background:
-            "linear-gradient(135deg, #f5f0ff 0%, #ffffff 55%, #eee8ff 100%)",
-        }}
-      >
-        <div className="container py-4">
-          <div className="row align-items-center g-5">
-            {/* LEFT */}
+      <section className="home-hero">
+        <div className="home-container">
+          <div className="home-hero-text">
+            <p className="ui-eyebrow">
+              คณะสังคมศาสตร์ มหาวิทยาลัยเชียงใหม่
+            </p>
 
-            <div className="col-lg-7">
-              <span className="badge rounded-pill bg-white text-dark border px-3 py-2 mb-3">
-                <i className="bi bi-building me-2 text-primary"></i>
-                Faculty of Social Sciences
-              </span>
+            <h1 className="home-hero-title">
+              ระบบยืม–คืนครุภัณฑ์ออนไลน์
+            </h1>
 
-              <h1 className="display-4 fw-bold text-dark mb-3">
-                ระบบยืม–คืน
-                <br />
-
-                <span
-                  style={{
-                    color: "#6f42c1",
-                  }}
-                >
-                  ครุภัณฑ์ออนไลน์
-                </span>
-              </h1>
-
-              <p className="lead text-secondary mb-4">
-                ระบบจัดการการยืมและคืนครุภัณฑ์
-                ช่วยให้ตรวจสอบข้อมูลครุภัณฑ์
-                และดำเนินการยืม–คืนได้อย่างสะดวก
-              </p>
-
-              {/* LOGIN BUTTON */}
-
-              <div className="d-flex flex-wrap gap-3">
-                <Link
-                  href="/login"
-                  className="btn btn-lg text-white rounded-pill px-4"
-                  style={{
-                    background: "#6f42c1",
-                  }}
-                >
-                  <i className="bi bi-box-arrow-in-right me-2"></i>
-                  เข้าสู่ระบบ
-                </Link>
-              </div>
-            </div>
-
-            {/* RIGHT */}
-
-            <div className="col-lg-5">
-              <div
-                className="bg-white rounded-4 shadow-lg p-4 mx-auto"
-                style={{
-                  maxWidth: "380px",
-                }}
-              >
-                <div className="text-center mb-3">
-                  <div
-                    className="mx-auto d-flex align-items-center justify-content-center rounded-4 mb-3"
-                    style={{
-                      width: "90px",
-                      height: "90px",
-                      background: "#f0eafa",
-                      color: "#6f42c1",
-                    }}
-                  >
-                    <i className="bi bi-box-seam fs-1"></i>
-                  </div>
-
-                  <h5 className="fw-bold">
-                    ระบบยืม–คืนครุภัณฑ์
-                  </h5>
-
-                  <p className="text-secondary small mb-0">
-                    จัดการข้อมูลครุภัณฑ์
-                    และรายการยืม–คืนผ่านระบบออนไลน์
-                  </p>
-                </div>
-
-                <hr />
-
-                {/* FEATURE 1 */}
-
-                <div className="d-flex align-items-center gap-3 mb-3">
-                  <div
-                    className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
-                    style={{
-                      width: "42px",
-                      height: "42px",
-                      background: "#e9f7ef",
-                      color: "#198754",
-                    }}
-                  >
-                    <i className="bi bi-check-lg"></i>
-                  </div>
-
-                  <div>
-                    <div className="fw-semibold">
-                      ตรวจสอบครุภัณฑ์
-                    </div>
-
-                    <small className="text-secondary">
-                      ตรวจสอบข้อมูลและสถานะครุภัณฑ์
-                    </small>
-                  </div>
-                </div>
-
-                {/* FEATURE 2 */}
-
-                <div className="d-flex align-items-center gap-3 mb-3">
-                  <div
-                    className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
-                    style={{
-                      width: "42px",
-                      height: "42px",
-                      background: "#fff3cd",
-                      color: "#997404",
-                    }}
-                  >
-                    <i className="bi bi-arrow-left-right"></i>
-                  </div>
-
-                  <div>
-                    <div className="fw-semibold">
-                      จัดการการยืม–คืน
-                    </div>
-
-                    <small className="text-secondary">
-                      ดำเนินการยืมและคืนครุภัณฑ์ผ่านระบบ
-                    </small>
-                  </div>
-                </div>
-
-                {/* FEATURE 3 */}
-
-                <div className="d-flex align-items-center gap-3">
-                  <div
-                    className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
-                    style={{
-                      width: "42px",
-                      height: "42px",
-                      background: "#eee8ff",
-                      color: "#6f42c1",
-                    }}
-                  >
-                    <i className="bi bi-clock-history"></i>
-                  </div>
-
-                  <div>
-                    <div className="fw-semibold">
-                      ตรวจสอบประวัติ
-                    </div>
-
-                    <small className="text-secondary">
-                      ตรวจสอบรายการยืม–คืนย้อนหลัง
-                    </small>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <p className="home-hero-desc">
+              ระบบจัดการการยืมและคืนครุภัณฑ์
+              ช่วยให้ตรวจสอบข้อมูลครุภัณฑ์
+              และดำเนินการยืม–คืนได้อย่างสะดวก
+            </p>
           </div>
-        </div>
-      </section>
 
-      {/* ================= STATISTICS ================= */}
+          {/* ================= STATISTICS ================= */}
 
-      <section className="py-4 bg-white border-bottom">
-        <div className="container">
-          <div className="row g-3">
-            {/* TOTAL EQUIPMENT */}
-
+          <div className="row g-3 home-stats">
             <div className="col-6 col-lg-3">
-              <div className="p-3">
-                <div className="d-flex align-items-center gap-3">
-                  <div
-                    className="rounded-3 d-flex align-items-center justify-content-center"
-                    style={{
-                      width: "48px",
-                      height: "48px",
-                      background: "#eee8ff",
-                      color: "#6f42c1",
-                    }}
-                  >
-                    <i className="bi bi-box-seam fs-5"></i>
-                  </div>
-
-                  <div>
-                    <div className="fs-4 fw-bold">
-                      {statsLoading
-                        ? "..."
-                        : formatNumber(
-                            stats.totalEquipment
-                          )}
-                    </div>
-
-                    <small className="text-secondary">
-                      ครุภัณฑ์ทั้งหมด
-                    </small>
-                  </div>
-                </div>
-              </div>
+              <StatCard
+                label="ครุภัณฑ์ทั้งหมด"
+                value={statValue(stats.totalEquipment)}
+                icon="bi-box-seam"
+                tone="purple"
+                hint="รายการในระบบ"
+              />
             </div>
 
-            {/* BORROWED */}
-
             <div className="col-6 col-lg-3">
-              <div className="p-3">
-                <div className="d-flex align-items-center gap-3">
-                  <div
-                    className="rounded-3 d-flex align-items-center justify-content-center"
-                    style={{
-                      width: "48px",
-                      height: "48px",
-                      background: "#fff3cd",
-                      color: "#997404",
-                    }}
-                  >
-                    <i className="bi bi-arrow-left-right fs-5"></i>
-                  </div>
-
-                  <div>
-                    <div className="fs-4 fw-bold">
-                      {statsLoading
-                        ? "..."
-                        : formatNumber(
-                            stats.borrowed
-                          )}
-                    </div>
-
-                    <small className="text-secondary">
-                      กำลังถูกยืม
-                    </small>
-                  </div>
-                </div>
-              </div>
+              <StatCard
+                label="กำลังถูกยืม"
+                value={statValue(stats.borrowed)}
+                icon="bi-arrow-left-right"
+                tone="amber"
+                hint="ยังไม่ได้คืน"
+              />
             </div>
 
-            {/* AVAILABLE */}
-
             <div className="col-6 col-lg-3">
-              <div className="p-3">
-                <div className="d-flex align-items-center gap-3">
-                  <div
-                    className="rounded-3 d-flex align-items-center justify-content-center"
-                    style={{
-                      width: "48px",
-                      height: "48px",
-                      background: "#d1e7dd",
-                      color: "#198754",
-                    }}
-                  >
-                    <i className="bi bi-check-circle fs-5"></i>
-                  </div>
-
-                  <div>
-                    <div className="fs-4 fw-bold">
-                      {statsLoading
-                        ? "..."
-                        : formatNumber(
-                            stats.available
-                          )}
-                    </div>
-
-                    <small className="text-secondary">
-                      พร้อมใช้งาน
-                    </small>
-                  </div>
-                </div>
-              </div>
+              <StatCard
+                label="พร้อมใช้งาน"
+                value={statValue(stats.available)}
+                icon="bi-check-circle"
+                tone="emerald"
+                hint="ยืมได้ทันที"
+              />
             </div>
 
-            {/* TOTAL BORROWINGS */}
-
             <div className="col-6 col-lg-3">
-              <div className="p-3">
-                <div className="d-flex align-items-center gap-3">
-                  <div
-                    className="rounded-3 d-flex align-items-center justify-content-center"
-                    style={{
-                      width: "48px",
-                      height: "48px",
-                      background: "#cff4fc",
-                      color: "#087990",
-                    }}
-                  >
-                    <i className="bi bi-arrow-repeat fs-5"></i>
-                  </div>
-
-                  <div>
-                    <div className="fs-4 fw-bold">
-                      {statsLoading
-                        ? "..."
-                        : formatNumber(
-                            stats.totalBorrowings
-                          )}
-                    </div>
-
-                    <small className="text-secondary">
-                      รายการยืมทั้งหมด
-                    </small>
-                  </div>
-                </div>
-              </div>
+              <StatCard
+                label="รายการยืมทั้งหมด"
+                value={statValue(stats.totalBorrowings)}
+                icon="bi-arrow-repeat"
+                tone="blue"
+                hint="สะสมตั้งแต่เปิดระบบ"
+              />
             </div>
           </div>
         </div>
@@ -553,191 +254,536 @@ export default function Home() {
 
       {/* ================= HOW TO ================= */}
 
-      <section className="py-5 bg-white">
-        <div className="container">
-          <div className="text-center mb-5">
-            <span className="text-primary fw-semibold">
-              HOW IT WORKS
-            </span>
-
-            <h2 className="fw-bold mt-2">
-              ยืมครุภัณฑ์ง่าย ๆ เพียง 3 ขั้นตอน
-            </h2>
+      <section className="home-section">
+        <div className="home-container">
+          <div className="home-section-head">
+            <p className="ui-eyebrow">ขั้นตอนการใช้งาน</p>
+            <h2 className="home-section-title">วิธีใช้งาน</h2>
+            <p className="home-section-desc">
+              จัดการข้อมูลครุภัณฑ์
+              และรายการยืม–คืนผ่านระบบออนไลน์
+            </p>
           </div>
 
-          <div className="row g-4 text-center">
-            <Step
-              number="01"
-              icon="bi-box-seam"
-              title="เลือกครุภัณฑ์"
-              description="ตรวจสอบข้อมูลและเลือกครุภัณฑ์ที่ต้องการยืม"
+          <div className="row g-3">
+            <Feature
+              step="01"
+              icon="bi-search"
+              tone="purple"
+              title="ตรวจสอบครุภัณฑ์"
+              description="ตรวจสอบข้อมูลและสถานะครุภัณฑ์"
             />
 
-            <Step
-              number="02"
-              icon="bi-file-earmark-check"
-              title="ทำรายการยืม"
-              description="เข้าสู่ระบบและกรอกข้อมูลเพื่อส่งคำขอยืม"
+            <Feature
+              step="02"
+              icon="bi-arrow-left-right"
+              tone="amber"
+              title="จัดการการยืม–คืน"
+              description="ดำเนินการยืมและคืนครุภัณฑ์ผ่านระบบ"
             />
 
-            <Step
-              number="03"
-              icon="bi-box-arrow-in-left"
-              title="คืนครุภัณฑ์"
-              description="นำครุภัณฑ์มาคืนและบันทึกการคืนในระบบ"
+            <Feature
+              step="03"
+              icon="bi-clock-history"
+              tone="emerald"
+              title="ตรวจสอบประวัติ"
+              description="ตรวจสอบรายการยืม–คืนย้อนหลัง"
             />
+          </div>
+
+          {/* STEPS */}
+
+          <div className="home-steps-wrap">
+            <Panel
+              title="ยืมครุภัณฑ์ง่าย ๆ เพียง 3 ขั้นตอน"
+              flush
+            >
+              <ol className="home-steps">
+                <Step
+                  number="1"
+                  title="เข้าสู่ระบบ"
+                  description="เข้าสู่ระบบด้วยบัญชีผู้ใช้งานผ่านสมาร์ตโฟนหรือคอมพิวเตอร์"
+                />
+
+                <Step
+                  number="2"
+                  title="สแกน QR Code"
+                  description="สแกน QR Code ที่ติดบนครุภัณฑ์ ระบบจะตรวจสอบให้ว่าเป็นการยืมหรือการคืน"
+                />
+
+                <Step
+                  number="3"
+                  title="ยืนยันการยืม–คืน"
+                  description="กดยืนยัน สถานะครุภัณฑ์จะอัปเดตในระบบทันที"
+                />
+              </ol>
+            </Panel>
           </div>
         </div>
       </section>
 
       {/* ================= FOOTER ================= */}
 
-      <footer
-        className="py-5 text-white"
-        style={{
-          background: "#17131f",
-        }}
-      >
-        <div className="container">
-          <div className="row g-4">
-            {/* ABOUT */}
-
-            <div className="col-lg-6">
-              <div className="d-flex align-items-center gap-3 mb-3">
-                <div
-                  className="d-flex align-items-center justify-content-center rounded-3"
-                  style={{
-                    width: "45px",
-                    height: "45px",
-                    background: "#6f42c1",
-                  }}
-                >
-                  <i className="bi bi-box-seam fs-5"></i>
-                </div>
-
-                <div>
-                  <div className="fw-bold">
-                    ระบบยืม–คืนครุภัณฑ์
-                  </div>
-
-                  <small className="text-white-50">
-                    คณะสังคมศาสตร์ มหาวิทยาลัยเชียงใหม่
-                  </small>
-                </div>
+      <footer className="home-footer">
+        <div className="home-container">
+          <div className="home-footer-grid">
+            <div>
+              <div className="home-footer-title">
+                ระบบยืม–คืนครุภัณฑ์
               </div>
-
-              <p className="text-white-50 mb-0">
+              <p className="home-footer-text">
                 ระบบจัดการครุภัณฑ์สำหรับการยืมและคืน
                 เพื่อเพิ่มความสะดวกและประสิทธิภาพในการบริหารจัดการ
               </p>
             </div>
 
-            {/* MENU */}
-
-            <div className="col-lg-3">
-              <h6 className="fw-bold mb-3">
-                เมนู
-              </h6>
-
-              <div className="d-flex flex-column gap-2">
-                <Link
-                  href="/"
-                  className="text-white-50 text-decoration-none"
-                >
-                  หน้าหลัก
-                </Link>
-
-                <Link
-                  href="/login"
-                  className="text-white-50 text-decoration-none"
-                >
-                  ครุภัณฑ์
-                </Link>
+            <div>
+              <div className="home-footer-title">เมนู</div>
+              <div className="home-footer-links">
+                <Link href="/">หน้าหลัก</Link>
+                <Link href="/login">ครุภัณฑ์</Link>
               </div>
             </div>
 
-            {/* CONTACT */}
-
-            <div className="col-lg-3">
-              <h6 className="fw-bold mb-3">
-                ติดต่อ
-              </h6>
-
-              <div className="text-white-50 small">
-                <div className="mb-2">
-                  <i className="bi bi-geo-alt me-2"></i>
-                  คณะสังคมศาสตร์
-                  มหาวิทยาลัยเชียงใหม่
-                </div>
-
-                <div>
-                  <i className="bi bi-envelope me-2"></i>
-                  Social Sciences Faculty
-                </div>
-              </div>
+            <div>
+              <div className="home-footer-title">ติดต่อ</div>
+              <p className="home-footer-text">
+                คณะสังคมศาสตร์ มหาวิทยาลัยเชียงใหม่
+                <br />
+                Social Sciences Faculty
+              </p>
             </div>
           </div>
 
-          <hr className="border-secondary my-4" />
-
-          <div className="text-center text-white-50 small">
+          <div className="home-footer-copy">
             © 2026 Faculty of Social Sciences, Chiang Mai University
           </div>
         </div>
       </footer>
+
+      <style jsx global>{HOME_STYLES}</style>
     </main>
   );
 }
 
 // =====================================================
-// STEP COMPONENT
+// FEATURE CARD
 // =====================================================
 
-function Step({
-  number,
+function Feature({
+  step,
   icon,
+  tone,
   title,
   description,
 }: {
-  number: string;
+  step: string;
   icon: string;
+  tone: Tone;
   title: string;
   description: string;
 }) {
   return (
     <div className="col-md-4">
-      <div className="px-3">
-        <div className="position-relative d-inline-flex">
-          <div
-            className="d-flex align-items-center justify-content-center rounded-circle"
-            style={{
-              width: "90px",
-              height: "90px",
-              background: "#eee8ff",
-              color: "#6f42c1",
-            }}
-          >
-            <i className={`${icon} fs-1`}></i>
-          </div>
+      <Panel className="home-feature">
+        <p className="home-feature-step">ขั้นตอน {step}</p>
 
-          <span
-            className="position-absolute top-0 start-100 translate-middle badge rounded-pill"
-            style={{
-              background: "#6f42c1",
-            }}
-          >
-            {number}
-          </span>
+        <div className={`home-feature-icon tone-${tone}`}>
+          <i className={`bi ${icon}`}></i>
         </div>
 
-        <h5 className="fw-bold mt-4">
-          {title}
-        </h5>
+        <p className="home-feature-title">{title}</p>
 
-        <p className="text-secondary">
-          {description}
-        </p>
-      </div>
+        <p className="home-feature-desc">{description}</p>
+      </Panel>
     </div>
   );
 }
+
+// =====================================================
+// STEP ROW
+// =====================================================
+
+function Step({
+  number,
+  title,
+  description,
+}: {
+  number: string;
+  title: string;
+  description: string;
+}) {
+  return (
+    <li className="home-step">
+      <span className="home-step-num">{number}</span>
+
+      <div>
+        <div className="home-step-title">{title}</div>
+        <div className="home-step-desc">{description}</div>
+      </div>
+    </li>
+  );
+}
+
+// =====================================================
+// STYLES
+// =====================================================
+
+const HOME_STYLES = `
+  .home-page {
+    min-height: 100vh;
+    background: #fafafa;
+    color: #171717;
+  }
+
+  .home-container {
+    width: 100%;
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 0 16px;
+  }
+
+  @media (min-width: 768px) {
+    .home-container {
+      padding: 0 24px;
+    }
+  }
+
+  /* Top bar */
+
+  .home-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    height: 64px;
+    border-bottom: 1px solid #e4e4e4;
+    background: #ffffff;
+  }
+
+  .home-topbar-inner {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .home-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .home-logo {
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    background: #6f42c1;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
+  .home-brand-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    line-height: 1.35;
+  }
+
+  .home-brand-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #171717;
+    white-space: nowrap;
+  }
+
+  .home-brand-sub {
+    font-size: 11px;
+    color: #737373;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .home-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .home-nav-link {
+    display: none;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 14px;
+    color: #737373;
+    text-decoration: none;
+  }
+
+  .home-nav-link:hover,
+  .home-nav-link.active {
+    color: #171717;
+  }
+
+  .home-nav-sep {
+    display: none;
+    width: 1px;
+    height: 20px;
+    margin: 0 4px;
+    background: #e4e4e4;
+  }
+
+  @media (min-width: 768px) {
+    .home-nav-link {
+      display: inline-block;
+    }
+
+    .home-nav-sep {
+      display: inline-block;
+    }
+  }
+
+  .home-btn.btn {
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 14px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .home-btn.btn-outline-secondary {
+    border-color: #e4e4e4;
+    background: #ffffff;
+    color: #171717;
+  }
+
+  .home-btn.btn-outline-secondary:hover {
+    border-color: #d4d4d4;
+    background: #f5f5f5;
+    color: #171717;
+  }
+
+  /* Hero */
+
+  .home-hero {
+    padding: 64px 0 48px;
+    border-bottom: 1px solid #e4e4e4;
+    background: #ffffff;
+  }
+
+  @media (min-width: 768px) {
+    .home-hero {
+      padding: 88px 0 56px;
+    }
+  }
+
+  .home-hero-text {
+    max-width: 720px;
+  }
+
+  .home-hero-title {
+    margin: 12px 0 12px;
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+    color: #171717;
+  }
+
+  @media (min-width: 768px) {
+    .home-hero-title {
+      font-size: 40px;
+    }
+  }
+
+  .home-hero-desc {
+    max-width: 560px;
+    margin: 0;
+    font-size: 15px;
+    line-height: 1.7;
+    color: #737373;
+  }
+
+  .home-stats {
+    margin-top: 48px;
+  }
+
+  /* Sections */
+
+  .home-section {
+    padding: 56px 0 64px;
+  }
+
+  .home-section-head {
+    max-width: 640px;
+    margin-bottom: 24px;
+  }
+
+  .home-section-title {
+    margin: 6px 0 4px;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: #171717;
+  }
+
+  .home-section-desc {
+    margin: 0;
+    font-size: 14px;
+    color: #737373;
+  }
+
+  .home-feature {
+    height: 100%;
+  }
+
+  .home-feature-step {
+    margin: 0 0 16px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #737373;
+  }
+
+  .home-feature-icon {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    font-size: 18px;
+  }
+
+  .home-feature-title {
+    margin: 16px 0 4px;
+    font-size: 15px;
+    font-weight: 600;
+    color: #171717;
+  }
+
+  .home-feature-desc {
+    margin: 0;
+    font-size: 14px;
+    color: #737373;
+  }
+
+  .home-steps-wrap {
+    margin-top: 16px;
+  }
+
+  .home-steps {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .home-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 14px 20px;
+    border-bottom: 1px solid #f0f0f0;
+  }
+
+  .home-step:last-child {
+    border-bottom: none;
+  }
+
+  .home-step-num {
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #e4e4e4;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #6f42c1;
+  }
+
+  .home-step-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #171717;
+  }
+
+  .home-step-desc {
+    margin-top: 2px;
+    font-size: 13px;
+    color: #737373;
+  }
+
+  /* Footer */
+
+  .home-footer {
+    padding: 40px 0 28px;
+    border-top: 1px solid #e4e4e4;
+    background: #ffffff;
+  }
+
+  .home-footer-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 24px;
+ }
+
+  @media (min-width: 768px) {
+    .home-footer-grid {
+      grid-template-columns: 2fr 1fr 1fr;
+    }
+  }
+
+  .home-footer-title {
+    margin-bottom: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #171717;
+  }
+
+  .home-footer-text {
+    max-width: 420px;
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.7;
+    color: #737373;
+  }
+
+  .home-footer-links {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 13px;
+  }
+
+  .home-footer-links a {
+    color: #737373;
+    text-decoration: none;
+  }
+
+  .home-footer-links a:hover {
+    color: #171717;
+  }
+
+  .home-footer-copy {
+    margin-top: 32px;
+    padding-top: 20px;
+    border-top: 1px solid #f0f0f0;
+    font-size: 12px;
+    color: #a3a3a3;
+  }
+`;

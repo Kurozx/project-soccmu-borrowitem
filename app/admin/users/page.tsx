@@ -2,6 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import AdminNavbar from "@/app/components/AdminNavbar";
+import {
+  PageHeader,
+  Panel,
+  Pill,
+  StatCard,
+  Toolbar,
+  type Tone,
+} from "@/app/components/ui";
 import Swal from "sweetalert2";
 
 import "bootstrap/dist/css/bootstrap.min.css";
@@ -9,11 +17,29 @@ import "bootstrap-icons/font/bootstrap-icons.css";
 
 type UserRole = "user" | "admin";
 
+type UserType = "student" | "teacher" | "staff";
+
+const USER_TYPE_LABELS: Record<UserType, string> = {
+  student: "นักศึกษา",
+  teacher: "อาจารย์",
+  staff: "เจ้าหน้าที่/บุคลากร",
+};
+
+const USER_TYPE_OPTIONS: UserType[] = [
+  "student",
+  "teacher",
+  "staff",
+];
+
+type TypeFilter = "all" | UserType | "admin" | "none";
+
 type User = {
   id: number;
   username: string;
   email: string;
   role: UserRole;
+  user_type: UserType | null;
+  avatar_url: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -23,13 +49,21 @@ type UserForm = {
   email: string;
   password: string;
   role: UserRole;
+  userType: UserType | "";
 };
+
+function getUserTypeLabel(user: Pick<User, "role" | "user_type">) {
+  if (user.role === "admin") return "ผู้ดูแลระบบ";
+  return user.user_type ? USER_TYPE_LABELS[user.user_type] : "-";
+}
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
 
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("ทั้งหมด");
+  const [typeFilter, setTypeFilter] =
+    useState<TypeFilter>("all");
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -50,6 +84,7 @@ export default function AdminUsersPage() {
     email: "",
     password: "",
     role: "user",
+    userType: "",
   });
 
   /* =========================================================
@@ -144,12 +179,23 @@ export default function AdminUsersPage() {
         (roleFilter === "ผู้ดูแลระบบ" &&
           user.role === "admin");
 
-      return matchSearch && matchRole;
+      const matchType =
+        typeFilter === "all" ||
+        (typeFilter === "admin" &&
+          user.role === "admin") ||
+        (typeFilter === "none" &&
+          user.role === "user" &&
+          !user.user_type) ||
+        (user.role === "user" &&
+          user.user_type === typeFilter);
+
+      return matchSearch && matchRole && matchType;
     });
   }, [
     users,
     search,
     roleFilter,
+    typeFilter,
   ]);
 
   /* =========================================================
@@ -166,6 +212,23 @@ export default function AdminUsersPage() {
     (user) => user.role === "admin"
   ).length;
 
+  const countByType = (type: UserType) =>
+    users.filter(
+      (user) =>
+        user.role === "user" &&
+        user.user_type === type
+    ).length;
+
+  const studentUsers = countByType("student");
+  const teacherUsers = countByType("teacher");
+  const staffUsers = countByType("staff");
+
+  const untypedUsers =
+    normalUsers -
+    studentUsers -
+    teacherUsers -
+    staffUsers;
+
   /* =========================================================
      RESET FILTER
   ========================================================= */
@@ -173,6 +236,7 @@ export default function AdminUsersPage() {
   const resetFilter = () => {
     setSearch("");
     setRoleFilter("ทั้งหมด");
+    setTypeFilter("all");
   };
 
   /* =========================================================
@@ -206,6 +270,7 @@ export default function AdminUsersPage() {
       email: "",
       password: "",
       role: "user",
+      userType: "",
     });
 
     setShowForm(true);
@@ -223,6 +288,7 @@ export default function AdminUsersPage() {
       email: user.email,
       password: "",
       role: user.role,
+      userType: user.user_type ?? "",
     });
 
     setShowDetail(false);
@@ -247,13 +313,13 @@ export default function AdminUsersPage() {
 
       if (!form.username.trim()) {
         throw new Error(
-          "กรุณากรอก Username"
+          "กรุณากรอกชื่อผู้ใช้"
         );
       }
 
       if (!form.email.trim()) {
         throw new Error(
-          "กรุณากรอก Email"
+          "กรุณากรอกอีเมล"
         );
       }
 
@@ -262,7 +328,7 @@ export default function AdminUsersPage() {
         form.password.length < 6
       ) {
         throw new Error(
-          "Password ต้องมีอย่างน้อย 6 ตัวอักษร"
+          "รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร"
         );
       }
 
@@ -272,7 +338,16 @@ export default function AdminUsersPage() {
         form.password.length < 6
       ) {
         throw new Error(
-          "Password ใหม่ต้องมีอย่างน้อย 6 ตัวอักษร"
+          "รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร"
+        );
+      }
+
+      if (
+        form.role === "user" &&
+        !form.userType
+      ) {
+        throw new Error(
+          "กรุณาเลือกประเภทผู้ใช้"
         );
       }
 
@@ -311,18 +386,25 @@ export default function AdminUsersPage() {
         ? "PATCH"
         : "POST";
 
+      const userType =
+        form.role === "user"
+          ? form.userType
+          : null;
+
       const body = editingUser
         ? {
             id: editingUser.id,
             email: form.email,
             password: form.password,
             role: form.role,
+            userType,
           }
         : {
             username: form.username,
             email: form.email,
             password: form.password,
             role: form.role,
+            userType,
           };
 
       const response = await fetch(url, {
@@ -488,70 +570,59 @@ export default function AdminUsersPage() {
   ========================================================= */
 
   return (
-    <main className="bg-light min-vh-100">
+    <main className="min-vh-100">
 
       <AdminNavbar />
 
-      <section className="admin-page-content admin-users-page">
+      <section className="admin-page-content">
 
-        <div className="container-fluid">
+        <div className="ui-page p-0">
 
-          {/* =================================================
-              HEADER
-          ================================================= */}
+          {/* HEADER */}
 
-          <div className="admin-users-header mb-4">
+          <PageHeader
+            eyebrow="ผู้ใช้งาน"
+            title="จัดการผู้ใช้งาน"
+            description="เพิ่ม แก้ไข และกำหนดสิทธิ์บัญชีผู้ใช้งานในระบบ"
+            actions={
+              <>
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary"
+                  onClick={loadUsers}
+                  disabled={loading}
+                >
+                  <i className="bi bi-arrow-clockwise me-2"></i>
 
-            <div>
+                  {loading
+                    ? "กำลังโหลด..."
+                    : "รีเฟรชข้อมูล"}
+                </button>
 
-              <h2 className="admin-page-title mb-1">
-                จัดการผู้ใช้งาน
-              </h2>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={openCreateModal}
+                >
+                  <i className="bi bi-person-plus me-2"></i>
+                  เพิ่มผู้ใช้งาน
+                </button>
+              </>
+            }
+          />
 
-            </div>
-
-            <div className="d-flex gap-2">
-
-              <button
-                type="button"
-                className="btn btn-success rounded-pill px-4"
-                onClick={openCreateModal}
-              >
-                <i className="bi bi-person-plus me-2"></i>
-                เพิ่มผู้ใช้งาน
-              </button>
-
-              <button
-                type="button"
-                className="btn admin-primary-btn rounded-pill px-4"
-                onClick={loadUsers}
-                disabled={loading}
-              >
-                <i className="bi bi-arrow-clockwise me-2"></i>
-
-                {loading
-                  ? "กำลังโหลด..."
-                  : "รีเฟรชข้อมูล"}
-              </button>
-
-            </div>
-
-          </div>
-
-          {/* =================================================
-              ERROR
-          ================================================= */}
+          {/* ERROR */}
 
           {error && (
-            <div className="alert alert-danger border-0 rounded-4 shadow-sm mb-4">
+            <div className="alert alert-danger us-alert mb-0">
 
               <div className="d-flex align-items-start gap-3">
 
-                <i className="bi bi-exclamation-triangle fs-4"></i>
+                <i className="bi bi-exclamation-triangle fs-5"></i>
 
                 <div>
 
-                  <div className="fw-bold">
+                  <div className="fw-semibold">
                     ไม่สามารถโหลดข้อมูลผู้ใช้งานได้
                   </div>
 
@@ -566,377 +637,380 @@ export default function AdminUsersPage() {
             </div>
           )}
 
-          {/* =================================================
-              STAT
-          ================================================= */}
+          {/* STAT */}
 
-          <div className="row g-3 mb-4">
+          <div className="row g-3">
 
-            <UserStat
-              icon="bi-people"
-              title="ผู้ใช้งานทั้งหมด"
-              value={totalUsers.toString()}
-              color="#6f42c1"
-            />
+            <div className="col-6 col-md-4 col-xl">
+              <StatCard
+                icon="bi-people"
+                label="ผู้ใช้งานทั้งหมด"
+                value={totalUsers}
+                tone="purple"
+                hint={
+                  untypedUsers > 0
+                    ? `ยังไม่ระบุประเภท ${untypedUsers} คน`
+                    : `ผู้ใช้งานทั่วไป ${normalUsers} คน`
+                }
+              />
+            </div>
 
-            <UserStat
-              icon="bi-person-check"
-              title="ผู้ใช้งานทั่วไป"
-              value={normalUsers.toString()}
-              color="#198754"
-            />
+            <div className="col-6 col-md-4 col-xl">
+              <StatCard
+                icon="bi-mortarboard"
+                label="นักศึกษา"
+                value={studentUsers}
+                tone="blue"
+              />
+            </div>
 
-            <UserStat
-              icon="bi-shield-check"
-              title="ผู้ดูแลระบบ"
-              value={adminUsers.toString()}
-              color="#dc3545"
-            />
+            <div className="col-6 col-md-4 col-xl">
+              <StatCard
+                icon="bi-person-video3"
+                label="อาจารย์"
+                value={teacherUsers}
+                tone="emerald"
+              />
+            </div>
 
-            <UserStat
-              icon="bi-database"
-              title="ข้อมูลจาก TiDB"
-              value={users.length.toString()}
-              color="#0d6efd"
-            />
+            <div className="col-6 col-md-6 col-xl">
+              <StatCard
+                icon="bi-briefcase"
+                label="เจ้าหน้าที่/บุคลากร"
+                value={staffUsers}
+                tone="amber"
+              />
+            </div>
+
+            <div className="col-12 col-md-6 col-xl">
+              <StatCard
+                icon="bi-shield-check"
+                label="ผู้ดูแลระบบ"
+                value={adminUsers}
+                tone="rose"
+              />
+            </div>
 
           </div>
 
-          {/* =================================================
-              TABLE
-          ================================================= */}
+          {/* FILTER */}
 
-          <div className="card border-0 shadow-sm rounded-4">
+          <Toolbar>
 
-            <div className="card-body p-4">
+            <div className="input-group us-search">
 
-              {/* FILTER */}
+              <span className="input-group-text bg-white">
+                <i className="bi bi-search text-secondary"></i>
+              </span>
 
-              <div className="row g-3 mb-4">
+              <input
+                type="text"
+                className="form-control border-start-0"
+                placeholder="ค้นหาชื่อผู้ใช้ อีเมล หรือรหัส..."
+                value={search}
+                onChange={(e) =>
+                  setSearch(
+                    e.target.value
+                  )
+                }
+              />
 
-                <div className="col-lg-7">
+            </div>
 
-                  <div className="input-group">
+            <select
+              className="form-select w-auto"
+              value={roleFilter}
+              onChange={(e) =>
+                setRoleFilter(
+                  e.target.value
+                )
+              }
+            >
 
-                    <span className="input-group-text bg-light border-0">
-                      <i className="bi bi-search"></i>
-                    </span>
+              <option>
+                ทั้งหมด
+              </option>
 
-                    <input
-                      type="text"
-                      className="form-control bg-light border-0"
-                      placeholder="ค้นหา Username, Email หรือ ID..."
-                      value={search}
-                      onChange={(e) =>
-                        setSearch(
-                          e.target.value
-                        )
-                      }
-                    />
+              <option>
+                ผู้ใช้งาน
+              </option>
 
-                  </div>
+              <option>
+                ผู้ดูแลระบบ
+              </option>
 
-                </div>
+            </select>
 
-                <div className="col-lg-3">
+            <select
+              className="form-select w-auto"
+              aria-label="กรองตามประเภทผู้ใช้"
+              value={typeFilter}
+              onChange={(e) =>
+                setTypeFilter(
+                  e.target.value as TypeFilter
+                )
+              }
+            >
 
-                  <select
-                    className="form-select"
-                    value={roleFilter}
-                    onChange={(e) =>
-                      setRoleFilter(
-                        e.target.value
-                      )
-                    }
-                  >
+              <option value="all">
+                ทุกประเภท
+              </option>
 
-                    <option>
-                      ทั้งหมด
-                    </option>
+              {USER_TYPE_OPTIONS.map((type) => (
+                <option key={type} value={type}>
+                  {USER_TYPE_LABELS[type]}
+                </option>
+              ))}
 
-                    <option>
-                      ผู้ใช้งาน
-                    </option>
+              <option value="admin">
+                ผู้ดูแลระบบ
+              </option>
 
-                    <option>
-                      ผู้ดูแลระบบ
-                    </option>
+              <option value="none">
+                ยังไม่ระบุประเภท
+              </option>
 
-                  </select>
+            </select>
 
-                </div>
+            <button
+              type="button"
+              className="btn btn-outline-secondary btn-sm"
+              onClick={resetFilter}
+            >
+              <i className="bi bi-arrow-counterclockwise me-1"></i>
+              รีเซ็ต
+            </button>
 
-                <div className="col-lg-2">
+          </Toolbar>
 
-                  <button
-                    type="button"
-                    className="btn btn-light w-100"
-                    onClick={resetFilter}
-                  >
+          {/* TABLE */}
 
-                    <i className="bi bi-arrow-counterclockwise me-2"></i>
+          <Panel
+            flush
+            title="รายชื่อผู้ใช้งาน"
+            description={
+              loading ? undefined : (
+                <>
+                  แสดง <strong>{filteredUsers.length}</strong>
+                  {" "}จาก{" "}
+                  <strong>{users.length}</strong>
+                  {" "}ผู้ใช้งาน
+                </>
+              )
+            }
+          >
 
-                    รีเซ็ต
+            {loading ? (
 
-                  </button>
+              <div className="text-center py-5">
 
+                <div
+                  className="spinner-border"
+                  style={{
+                    color: "#6f42c1",
+                  }}
+                />
+
+                <div className="mt-3 text-secondary">
+                  กำลังโหลดข้อมูลจากฐานข้อมูล...
                 </div>
 
               </div>
 
-              {/* =================================================
-                  LOADING
-              ================================================= */}
+            ) : (
 
-              {loading ? (
+              <div className="table-responsive">
 
-                <div className="text-center py-5">
+                <table className="table align-middle ui-table us-table">
 
-                  <div
-                    className="spinner-border"
-                    style={{
-                      color: "#6f42c1",
-                    }}
-                  />
+                  <thead>
 
-                  <div className="mt-3 text-secondary">
-                    กำลังโหลดข้อมูลจาก TiDB...
-                  </div>
+                    <tr>
+                      <th>รหัส</th>
+                      <th>ผู้ใช้งาน</th>
+                      <th>อีเมล</th>
+                      <th>ประเภทผู้ใช้</th>
+                      <th>สิทธิ์</th>
+                      <th>วันที่สมัคร</th>
+                      <th className="text-end">จัดการ</th>
+                    </tr>
 
-                </div>
+                  </thead>
 
-              ) : (
+                  <tbody>
 
-                <div className="table-responsive">
+                    {filteredUsers.length > 0 ? (
 
-                  <table className="table align-middle admin-users-table">
+                      filteredUsers.map(
+                        (user) => (
 
-                    <thead>
+                          <tr key={user.id}>
 
-                      <tr className="text-secondary">
+                            <td>
+                              <Pill tone="neutral">
+                                #{user.id}
+                              </Pill>
+                            </td>
 
-                        <th>ID</th>
+                            <td>
 
-                        <th>
-                          ผู้ใช้งาน
-                        </th>
+                              <div className="d-flex align-items-center gap-3">
 
-                        <th>
-                          Email
-                        </th>
+                                <div className="us-avatar tone-purple">
+                                  {user.avatar_url ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      src={user.avatar_url}
+                                      alt=""
+                                      loading="lazy"
+                                    />
+                                  ) : (
+                                    user.username
+                                      .trim()
+                                      .charAt(0)
+                                      .toUpperCase()
+                                  )}
+                                </div>
 
-                        <th>
-                          สิทธิ์
-                        </th>
+                                <div>
 
-                        <th>
-                          วันที่สมัคร
-                        </th>
+                                  <div className="fw-semibold">
+                                    {user.username}
+                                  </div>
 
-                        <th className="text-end">
-                          จัดการ
-                        </th>
+                                  <small className="text-secondary">
+                                    บัญชีผู้ใช้งาน
+                                  </small>
+
+                                </div>
+
+                              </div>
+
+                            </td>
+
+                            <td>
+                              {user.email}
+                            </td>
+
+                            <td>
+                              <UserTypeBadge
+                                user={user}
+                              />
+                            </td>
+
+                            <td>
+                              <RoleBadge
+                                role={
+                                  user.role
+                                }
+                              />
+                            </td>
+
+                            <td>
+
+                              <small className="text-secondary">
+                                {formatDate(
+                                  user.created_at
+                                )}
+                              </small>
+
+                            </td>
+
+                            <td className="text-end">
+
+                              <div className="d-flex justify-content-end gap-2">
+
+                                {/* VIEW */}
+
+                                <button
+                                  type="button"
+                                  className="btn btn-sm us-action"
+                                  title="ดูรายละเอียด"
+                                  onClick={() => {
+                                    setSelectedUser(
+                                      user
+                                    );
+                                    setShowDetail(
+                                      true
+                                    );
+                                  }}
+                                >
+                                  <i className="bi bi-eye"></i>
+                                </button>
+
+                                {/* EDIT */}
+
+                                <button
+                                  type="button"
+                                  className="btn btn-sm us-action"
+                                  title="แก้ไข"
+                                  onClick={() =>
+                                    openEditModal(
+                                      user
+                                    )
+                                  }
+                                >
+                                  <i className="bi bi-pencil"></i>
+                                </button>
+
+                                {/* DELETE */}
+
+                                <button
+                                  type="button"
+                                  className="btn btn-sm us-action danger"
+                                  title="ลบ"
+                                  onClick={() =>
+                                    handleDelete(
+                                      user
+                                    )
+                                  }
+                                >
+                                  <i className="bi bi-trash"></i>
+                                </button>
+
+                              </div>
+
+                            </td>
+
+                          </tr>
+
+                        )
+                      )
+
+                    ) : (
+
+                      <tr>
+
+                        <td
+                          colSpan={7}
+                          className="text-center py-5"
+                        >
+
+                          <i className="bi bi-people fs-3 text-secondary"></i>
+
+                          <div className="fw-semibold mt-2">
+                            ไม่พบผู้ใช้งาน
+                          </div>
+
+                          <small className="text-secondary">
+                            ลองเปลี่ยนคำค้นหาหรือตัวกรอง
+                          </small>
+
+                        </td>
 
                       </tr>
 
-                    </thead>
+                    )}
 
-                    <tbody>
+                  </tbody>
 
-                      {filteredUsers.length > 0 ? (
+                </table>
 
-                        filteredUsers.map(
-                          (user) => (
+              </div>
 
-                            <tr key={user.id}>
+            )}
 
-                              <td>
-
-                                <span className="badge bg-light text-dark border rounded-pill px-3 py-2">
-                                  #{user.id}
-                                </span>
-
-                              </td>
-
-                              <td>
-
-                                <div className="d-flex align-items-center gap-3">
-
-                                  <div className="user-avatar">
-
-                                    <i className="bi bi-person fs-5"></i>
-
-                                  </div>
-
-                                  <div>
-
-                                    <div className="fw-semibold">
-                                      {user.username}
-                                    </div>
-
-                                    <small className="text-secondary">
-                                      บัญชีผู้ใช้งาน
-                                    </small>
-
-                                  </div>
-
-                                </div>
-
-                              </td>
-
-                              <td>
-                                {user.email}
-                              </td>
-
-                              <td>
-
-                                <RoleBadge
-                                  role={
-                                    user.role
-                                  }
-                                />
-
-                              </td>
-
-                              <td>
-
-                                <small className="text-secondary">
-                                  {formatDate(
-                                    user.created_at
-                                  )}
-                                </small>
-
-                              </td>
-
-                              <td className="text-end">
-
-                                <div className="d-flex justify-content-end gap-2">
-
-                                  {/* VIEW */}
-
-                                  <button
-                                    type="button"
-                                    className="btn btn-light btn-sm rounded-circle user-action-btn"
-                                    title="ดูรายละเอียด"
-                                    onClick={() => {
-                                      setSelectedUser(
-                                        user
-                                      );
-                                      setShowDetail(
-                                        true
-                                      );
-                                    }}
-                                  >
-
-                                    <i className="bi bi-eye"></i>
-
-                                  </button>
-
-                                  {/* EDIT */}
-
-                                  <button
-                                    type="button"
-                                    className="btn btn-warning btn-sm rounded-circle text-white"
-                                    title="แก้ไข"
-                                    onClick={() =>
-                                      openEditModal(
-                                        user
-                                      )
-                                    }
-                                  >
-
-                                    <i className="bi bi-pencil"></i>
-
-                                  </button>
-
-                                  {/* DELETE */}
-
-                                  <button
-                                    type="button"
-                                    className="btn btn-danger btn-sm rounded-circle"
-                                    title="ลบ"
-                                    onClick={() =>
-                                      handleDelete(
-                                        user
-                                      )
-                                    }
-                                  >
-
-                                    <i className="bi bi-trash"></i>
-
-                                  </button>
-
-                                </div>
-
-                              </td>
-
-                            </tr>
-
-                          )
-                        )
-
-                      ) : (
-
-                        <tr>
-
-                          <td
-                            colSpan={6}
-                            className="text-center py-5"
-                          >
-
-                            <i className="bi bi-people fs-1 text-secondary"></i>
-
-                            <div className="fw-semibold mt-3">
-                              ไม่พบผู้ใช้งาน
-                            </div>
-
-                            <small className="text-secondary">
-                              ลองเปลี่ยนคำค้นหาหรือตัวกรอง
-                            </small>
-
-                          </td>
-
-                        </tr>
-
-                      )}
-
-                    </tbody>
-
-                  </table>
-
-                </div>
-
-              )}
-
-              {!loading && (
-
-                <div className="mt-3">
-
-                  <small className="text-secondary">
-
-                    แสดง{" "}
-
-                    <strong>
-                      {filteredUsers.length}
-                    </strong>
-
-                    {" "}จาก{" "}
-
-                    <strong>
-                      {users.length}
-                    </strong>
-
-                    {" "}ผู้ใช้งาน
-
-                  </small>
-
-                </div>
-
-              )}
-
-            </div>
-
-          </div>
+          </Panel>
 
         </div>
 
@@ -950,7 +1024,7 @@ export default function AdminUsersPage() {
         selectedUser && (
 
           <div
-            className="modal fade show d-block admin-users-modal-backdrop"
+            className="modal fade show d-block us-modal-backdrop"
             tabIndex={-1}
             onClick={() =>
               setShowDetail(false)
@@ -964,7 +1038,7 @@ export default function AdminUsersPage() {
               }
             >
 
-              <div className="modal-content border-0 rounded-4">
+              <div className="modal-content us-modal">
 
                 <div className="modal-body p-4">
 
@@ -988,10 +1062,19 @@ export default function AdminUsersPage() {
 
                   <div className="text-center mt-4">
 
-                    <div className="user-detail-avatar">
-
-                      <i className="bi bi-person-fill fs-1"></i>
-
+                    <div className="us-avatar lg tone-purple mx-auto">
+                      {selectedUser.avatar_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={selectedUser.avatar_url}
+                          alt={`รูปโปรไฟล์ของ ${selectedUser.username}`}
+                        />
+                      ) : (
+                        selectedUser.username
+                          .trim()
+                          .charAt(0)
+                          .toUpperCase()
+                      )}
                     </div>
 
                     <h4 className="fw-bold mt-3 mb-1">
@@ -1014,7 +1097,7 @@ export default function AdminUsersPage() {
 
                   </div>
 
-                  <div className="bg-light rounded-4 p-3 mt-4">
+                  <div className="us-soft px-3 mt-4">
 
                     <InfoRow
                       icon="bi-hash"
@@ -1026,7 +1109,7 @@ export default function AdminUsersPage() {
 
                     <InfoRow
                       icon="bi-person"
-                      title="Username"
+                      title="ชื่อผู้ใช้"
                       value={
                         selectedUser.username
                       }
@@ -1034,10 +1117,18 @@ export default function AdminUsersPage() {
 
                     <InfoRow
                       icon="bi-envelope"
-                      title="Email"
+                      title="อีเมล"
                       value={
                         selectedUser.email
                       }
+                    />
+
+                    <InfoRow
+                      icon="bi-person-badge"
+                      title="ประเภทผู้ใช้"
+                      value={getUserTypeLabel(
+                        selectedUser
+                      )}
                     />
 
                     <InfoRow
@@ -1072,43 +1163,11 @@ export default function AdminUsersPage() {
 
                 </div>
 
-                <div className="modal-footer border-0">
+                <div className="modal-footer px-4 py-3">
 
                   <button
                     type="button"
-                    className="btn btn-warning text-white rounded-pill px-4"
-                    onClick={() =>
-                      openEditModal(
-                        selectedUser
-                      )
-                    }
-                  >
-
-                    <i className="bi bi-pencil me-2"></i>
-
-                    แก้ไข
-
-                  </button>
-
-                  <button
-                    type="button"
-                    className="btn btn-danger rounded-pill px-4"
-                    onClick={() =>
-                      handleDelete(
-                        selectedUser
-                      )
-                    }
-                  >
-
-                    <i className="bi bi-trash me-2"></i>
-
-                    ลบ
-
-                  </button>
-
-                  <button
-                    type="button"
-                    className="btn btn-light rounded-pill px-4"
+                    className="btn btn-outline-secondary px-4"
                     onClick={() =>
                       setShowDetail(
                         false
@@ -1116,6 +1175,32 @@ export default function AdminUsersPage() {
                     }
                   >
                     ปิด
+                  </button>
+
+                  <button
+                    type="button"
+                    className="btn btn-outline-danger px-4"
+                    onClick={() =>
+                      handleDelete(
+                        selectedUser
+                      )
+                    }
+                  >
+                    <i className="bi bi-trash me-2"></i>
+                    ลบ
+                  </button>
+
+                  <button
+                    type="button"
+                    className="btn btn-primary px-4"
+                    onClick={() =>
+                      openEditModal(
+                        selectedUser
+                      )
+                    }
+                  >
+                    <i className="bi bi-pencil me-2"></i>
+                    แก้ไข
                   </button>
 
                 </div>
@@ -1134,17 +1219,17 @@ export default function AdminUsersPage() {
       {showForm && (
 
         <div
-          className="modal fade show d-block admin-users-modal-backdrop"
+          className="modal fade show d-block us-modal-backdrop"
           tabIndex={-1}
         >
 
           <div className="modal-dialog modal-dialog-centered">
 
-            <div className="modal-content border-0 rounded-4 shadow">
+            <div className="modal-content us-modal">
 
               <form onSubmit={handleSubmit}>
 
-                <div className="modal-header border-0 px-4 pt-4">
+                <div className="modal-header px-4 py-3">
 
                   <div>
 
@@ -1178,7 +1263,7 @@ export default function AdminUsersPage() {
 
                 </div>
 
-                <div className="modal-body px-4">
+                <div className="modal-body p-4">
 
                   {/* USERNAME */}
 
@@ -1211,7 +1296,7 @@ export default function AdminUsersPage() {
                                 .value,
                           })
                         }
-                        placeholder="กรอก Username"
+                        placeholder="กรอกชื่อผู้ใช้"
                         required
                       />
 
@@ -1219,7 +1304,7 @@ export default function AdminUsersPage() {
 
                     {editingUser && (
                       <small className="text-secondary">
-                        Username ไม่สามารถแก้ไขได้
+                        ชื่อผู้ใช้ไม่สามารถแก้ไขได้
                       </small>
                     )}
 
@@ -1300,7 +1385,7 @@ export default function AdminUsersPage() {
                         }
                         placeholder={
                           editingUser
-                            ? "Password ใหม่"
+                            ? "รหัสผ่านใหม่"
                             : "อย่างน้อย 6 ตัวอักษร"
                         }
                         required={
@@ -1347,11 +1432,62 @@ export default function AdminUsersPage() {
 
                   </div>
 
+                  {/* USER TYPE */}
+
+                  {form.role === "user" && (
+
+                    <div className="mb-3">
+
+                      <label
+                        htmlFor="us-user-type"
+                        className="form-label fw-semibold"
+                      >
+                        ประเภทผู้ใช้
+                      </label>
+
+                      <select
+                        id="us-user-type"
+                        className="form-select"
+                        value={form.userType}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            userType:
+                              e.target
+                                .value as
+                                | UserType
+                                | "",
+                          })
+                        }
+                        required
+                      >
+
+                        <option value="" disabled>
+                          เลือกประเภทผู้ใช้
+                        </option>
+
+                        {USER_TYPE_OPTIONS.map(
+                          (type) => (
+                            <option
+                              key={type}
+                              value={type}
+                            >
+                              {USER_TYPE_LABELS[type]}
+                            </option>
+                          )
+                        )}
+
+                      </select>
+
+                    </div>
+
+                  )}
+
                   {editingUser &&
                     form.role ===
                       "admin" && (
 
-                      <div className="alert alert-warning border-0 rounded-3 small">
+                      <div className="alert alert-warning us-warn small mb-0">
 
                         <i className="bi bi-exclamation-triangle me-2"></i>
 
@@ -1363,11 +1499,11 @@ export default function AdminUsersPage() {
 
                 </div>
 
-                <div className="modal-footer border-0 px-4 pb-4">
+                <div className="modal-footer px-4 py-3">
 
                   <button
                     type="button"
-                    className="btn btn-light rounded-pill px-4"
+                    className="btn btn-outline-secondary px-4"
                     onClick={() =>
                       setShowForm(
                         false
@@ -1380,7 +1516,7 @@ export default function AdminUsersPage() {
 
                   <button
                     type="submit"
-                    className="btn admin-primary-btn rounded-pill px-4"
+                    className="btn btn-primary px-4"
                     disabled={saving}
                   >
 
@@ -1421,69 +1557,112 @@ export default function AdminUsersPage() {
         </div>
       )}
 
+      <style jsx>{`
+        .us-search {
+          flex: 1 1 240px;
+          max-width: 420px;
+        }
+
+        .us-table {
+          min-width: 940px;
+        }
+
+        .us-table > tbody > tr > td {
+          background: transparent;
+        }
+
+        .us-avatar {
+          width: 36px;
+          height: 36px;
+          flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 50%;
+          overflow: hidden;
+          font-size: 15px;
+          font-weight: 700;
+        }
+
+        .us-avatar img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .us-avatar.lg {
+          width: 72px;
+          height: 72px;
+          font-size: 28px;
+        }
+
+        .us-action {
+          width: 32px;
+          height: 32px;
+          padding: 0;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid #e4e4e4;
+          border-radius: 8px;
+          background: #ffffff;
+          color: #404040;
+        }
+
+        .us-action:hover {
+          background: #f3efff;
+          border-color: #d9ccff;
+          color: #6f42c1;
+        }
+
+        .us-action.danger {
+          color: #e11d48;
+        }
+
+        .us-action.danger:hover {
+          background: #fff1f2;
+          border-color: #fecdd3;
+          color: #e11d48;
+        }
+
+        .us-alert {
+          border: 1px solid #fecdd3;
+          border-radius: 12px;
+          background: #fff1f2;
+          color: #9f1239;
+          font-size: 14px;
+        }
+
+        .us-warn {
+          border: 1px solid #fde68a;
+          border-radius: 8px;
+          background: #fffbeb;
+          color: #92400e;
+        }
+
+        .us-modal-backdrop {
+          background: rgba(15, 23, 42, 0.45);
+        }
+
+        .us-modal {
+          border: 1px solid #e4e4e4;
+          border-radius: 12px;
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+        }
+
+        .us-modal .modal-header,
+        .us-modal .modal-footer {
+          border-color: #e4e4e4;
+        }
+
+        .us-soft {
+          border: 1px solid #e4e4e4;
+          border-radius: 8px;
+          background: #fafafa;
+        }
+      `}</style>
+
     </main>
-  );
-}
-
-/* =========================================================
-   USER STAT
-========================================================= */
-
-function UserStat({
-  icon,
-  title,
-  value,
-  color,
-}: {
-  icon: string;
-  title: string;
-  value: string;
-  color: string;
-}) {
-  return (
-    <div className="col-12 col-sm-6 col-xl-3">
-
-      <div className="card border-0 shadow-sm rounded-4 h-100">
-
-        <div className="card-body p-4">
-
-          <div className="d-flex align-items-center gap-3">
-
-            <div
-              className="rounded-3 d-flex align-items-center justify-content-center"
-              style={{
-                width: "50px",
-                height: "50px",
-                background: `${color}15`,
-                color: color,
-              }}
-            >
-
-              <i
-                className={`bi ${icon} fs-5`}
-              />
-
-            </div>
-
-            <div>
-
-              <small className="text-secondary d-block">
-                {title}
-              </small>
-
-              <strong className="fs-3">
-                {value}
-              </strong>
-
-            </div>
-
-          </div>
-
-        </div>
-
-      </div>
-
-    </div>
   );
 }
 
@@ -1498,24 +1677,60 @@ function RoleBadge({
 }) {
   if (role === "admin") {
     return (
-      <span className="badge rounded-pill px-3 py-2 bg-danger-subtle text-danger">
-
-        <i className="bi bi-shield-check me-1"></i>
-
+      <Pill tone="rose">
+        <i className="bi bi-shield-check"></i>
         ผู้ดูแลระบบ
-
-      </span>
+      </Pill>
     );
   }
 
   return (
-    <span className="badge rounded-pill px-3 py-2 bg-primary-subtle text-primary">
-
-      <i className="bi bi-person me-1"></i>
-
+    <Pill tone="purple">
+      <i className="bi bi-person"></i>
       ผู้ใช้งาน
+    </Pill>
+  );
+}
 
-    </span>
+/* =========================================================
+   USER TYPE BADGE
+========================================================= */
+
+const USER_TYPE_STYLE: Record<
+  UserType,
+  { tone: Tone; icon: string }
+> = {
+  student: { tone: "blue", icon: "bi-mortarboard" },
+  teacher: { tone: "emerald", icon: "bi-person-video3" },
+  staff: { tone: "amber", icon: "bi-briefcase" },
+};
+
+function UserTypeBadge({
+  user,
+}: {
+  user: Pick<User, "role" | "user_type">;
+}) {
+  if (user.role === "admin") {
+    return (
+      <Pill tone="neutral">
+        ผู้ดูแลระบบ
+      </Pill>
+    );
+  }
+
+  if (!user.user_type) {
+    return (
+      <span className="text-secondary">-</span>
+    );
+  }
+
+  const style = USER_TYPE_STYLE[user.user_type];
+
+  return (
+    <Pill tone={style.tone}>
+      <i className={`bi ${style.icon}`}></i>
+      {USER_TYPE_LABELS[user.user_type]}
+    </Pill>
   );
 }
 
@@ -1536,27 +1751,23 @@ function InfoRow({
 }) {
   return (
     <div
-      className={`d-flex align-items-center gap-3 py-3 ${
-        !last
-          ? "border-bottom"
-          : ""
-      }`}
+      className="d-flex align-items-center gap-3 py-3"
+      style={
+        last
+          ? undefined
+          : { borderBottom: "1px solid #e4e4e4" }
+      }
     >
 
       <div
-        className="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
+        className="tone-purple d-flex align-items-center justify-content-center flex-shrink-0"
         style={{
-          width: "42px",
-          height: "42px",
-          background: "#eee8ff",
-          color: "#6f42c1",
+          width: "36px",
+          height: "36px",
+          borderRadius: "8px",
         }}
       >
-
-        <i
-          className={`bi ${icon}`}
-        />
-
+        <i className={`bi ${icon}`} />
       </div>
 
       <div className="flex-grow-1">

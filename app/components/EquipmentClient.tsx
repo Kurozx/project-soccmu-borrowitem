@@ -1,7 +1,19 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import UserNavbar from "@/app/components/UserNavbar";
+import {
+  PageHeader,
+  Panel,
+  Pill,
+  StatCard,
+  Toolbar,
+  type Tone,
+} from "@/app/components/ui";
+import {
+  listImages,
+  type StoredImage,
+} from "@/lib/client-images";
 
 import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap-icons/font/bootstrap-icons.css";
@@ -14,7 +26,31 @@ type EquipmentStatus =
   | "available"
   | "borrowed"
   | "maintenance"
-  | "inactive";
+  | "inactive"
+  | "damaged"
+  | "lost";
+
+type HistoryStatus =
+  | "รออนุมัติ"
+  | "กำลังยืม"
+  | "เกินกำหนด"
+  | "คืนแล้ว"
+  | "ยกเลิก";
+
+type HistoryEntry = {
+  id: number;
+  borrower: string;
+  borrowDate: string | null;
+  dueDate: string | null;
+  returnDate: string | null;
+  rawStatus: string;
+  status: HistoryStatus;
+};
+
+type HistoryState =
+  | { state: "loading" }
+  | { state: "error"; message: string }
+  | { state: "ready"; history: HistoryEntry[] };
 
 type EquipmentItem = {
   id: number;
@@ -27,7 +63,13 @@ type EquipmentItem = {
   availableQuantity: number;
   status: EquipmentStatus;
   imageUrl: string | null;
+  categoryImageUrl: string | null;
 };
+
+// รูปที่แสดงบนการ์ด: รูปครุภัณฑ์ → รูปหมวดหมู่ → (ไม่มี = ใช้ไอคอน)
+function coverImage(item: EquipmentItem) {
+  return item.imageUrl || item.categoryImageUrl || null;
+}
 
 /*
   สำคัญมาก
@@ -162,12 +204,14 @@ export default function EquipmentClient({
           0
         );
 
+    // ไม่พร้อมใช้งาน = ปิดใช้งาน + ชำรุด + สูญหาย
     const inactive =
       items
         .filter(
           (item) =>
-            item.status ===
-            "inactive"
+            item.status === "inactive" ||
+            item.status === "damaged" ||
+            item.status === "lost"
         )
         .reduce(
           (sum, item) =>
@@ -203,87 +247,76 @@ export default function EquipmentClient({
       <UserNavbar />
 
       <main className="equipment-main">
-        <div className="container-fluid px-4 py-4">
+        <div className="ui-page">
 
           {/* ============================================
               HEADER
           ============================================ */}
 
-          <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
-
-            <div>
-              <h2 className="fw-bold mb-1">
-                ครุภัณฑ์
-              </h2>
-
-              <p className="text-secondary mb-0">
-                รายการครุภัณฑ์ทั้งหมดในระบบ
-              </p>
-            </div>
-
-            <div className="text-secondary">
-              พบ{" "}
-              <strong className="text-dark">
-                {filteredItems.length}
-              </strong>{" "}
-              รายการ
-            </div>
-
-          </div>
+          <PageHeader
+            eyebrow="ครุภัณฑ์"
+            title="ครุภัณฑ์"
+            description="รายการครุภัณฑ์ทั้งหมดในระบบ"
+            actions={
+              <div className="equipment-count">
+                พบ{" "}
+                <strong className="text-dark">
+                  {filteredItems.length}
+                </strong>{" "}
+                รายการ
+              </div>
+            }
+          />
 
           {/* ============================================
               STATISTICS
           ============================================ */}
 
-          <div className="row g-3 mb-4">
+          <div className="row g-3">
 
             <div className="col-6 col-xl">
               <StatCard
                 icon="bi-box-seam"
-                title="ครุภัณฑ์ทั้งหมด"
-                value={
-                  statistics.total
-                }
+                label="ครุภัณฑ์ทั้งหมด"
+                value={statistics.total.toLocaleString()}
+                tone="purple"
               />
             </div>
 
             <div className="col-6 col-xl">
               <StatCard
                 icon="bi-check-circle"
-                title="พร้อมใช้งาน"
-                value={
-                  statistics.available
-                }
+                label="พร้อมใช้งาน"
+                value={statistics.available.toLocaleString()}
+                tone="emerald"
               />
             </div>
 
             <div className="col-6 col-xl">
               <StatCard
                 icon="bi-arrow-up-right-circle"
-                title="ถูกยืม"
-                value={
-                  statistics.borrowed
-                }
+                label="ถูกยืม"
+                value={statistics.borrowed.toLocaleString()}
+                tone="amber"
               />
             </div>
 
             <div className="col-6 col-xl">
               <StatCard
                 icon="bi-tools"
-                title="ซ่อมบำรุง"
-                value={
-                  statistics.maintenance
-                }
+                label="ซ่อมบำรุง"
+                value={statistics.maintenance.toLocaleString()}
+                tone="rose"
               />
             </div>
 
             <div className="col-12 col-xl">
               <StatCard
                 icon="bi-x-circle"
-                title="ไม่พร้อมใช้งาน"
-                value={
-                  statistics.inactive
-                }
+                label="ไม่พร้อมใช้งาน"
+                value={statistics.inactive.toLocaleString()}
+                hint="รวมชำรุด / สูญหาย"
+                tone="neutral"
               />
             </div>
 
@@ -293,135 +326,113 @@ export default function EquipmentClient({
               SEARCH / FILTER
           ============================================ */}
 
-          <div className="card border-0 shadow-sm mb-4">
-            <div className="card-body">
+          <Toolbar>
 
-              <div className="row g-3">
+            {/* SEARCH */}
 
-                {/* SEARCH */}
+            <div className="equipment-search">
+              <i className="bi bi-search" />
 
-                <div className="col-lg-5">
-
-                  <label className="form-label fw-semibold">
-                    ค้นหาครุภัณฑ์
-                  </label>
-
-                  <div className="input-group">
-
-                    <span className="input-group-text bg-white">
-                      <i className="bi bi-search" />
-                    </span>
-
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="ค้นหาชื่อ รหัส หรือสถานที่..."
-                      value={search}
-                      onChange={(e) =>
-                        setSearch(
-                          e.target.value
-                        )
-                      }
-                    />
-
-                  </div>
-
-                </div>
-
-                {/* CATEGORY */}
-
-                <div className="col-lg-3">
-
-                  <label className="form-label fw-semibold">
-                    ประเภท
-                  </label>
-
-                  <select
-                    className="form-select"
-                    value={category}
-                    onChange={(e) =>
-                      setCategory(
-                        e.target.value
-                      )
-                    }
-                  >
-                    {categories.map(
-                      (item) => (
-                        <option
-                          key={item}
-                          value={item}
-                        >
-                          {item}
-                        </option>
-                      )
-                    )}
-                  </select>
-
-                </div>
-
-                {/* STATUS */}
-
-                <div className="col-lg-3">
-
-                  <label className="form-label fw-semibold">
-                    สถานะ
-                  </label>
-
-                  <select
-                    className="form-select"
-                    value={status}
-                    onChange={(e) =>
-                      setStatus(
-                        e.target.value
-                      )
-                    }
-                  >
-
-                    <option value="ทั้งหมด">
-                      ทั้งหมด
-                    </option>
-
-                    <option value="available">
-                      พร้อมใช้งาน
-                    </option>
-
-                    <option value="borrowed">
-                      ถูกยืม
-                    </option>
-
-                    <option value="maintenance">
-                      ซ่อมบำรุง
-                    </option>
-
-                    <option value="inactive">
-                      ไม่พร้อมใช้งาน
-                    </option>
-
-                  </select>
-
-                </div>
-
-                {/* RESET */}
-
-                <div className="col-lg-1 d-flex align-items-end">
-
-                  <button
-                    type="button"
-                    className="btn btn-outline-secondary w-100"
-                    onClick={
-                      resetFilter
-                    }
-                    title="ล้างตัวกรอง"
-                  >
-                    <i className="bi bi-arrow-clockwise" />
-                  </button>
-
-                </div>
-
-              </div>
-
+              <input
+                type="text"
+                className="form-control"
+                placeholder="ค้นหาชื่อ รหัส หรือสถานที่..."
+                aria-label="ค้นหาครุภัณฑ์"
+                value={search}
+                onChange={(e) =>
+                  setSearch(
+                    e.target.value
+                  )
+                }
+              />
             </div>
-          </div>
+
+            {/* CATEGORY */}
+
+            <select
+              className="form-select equipment-filter"
+              aria-label="ประเภท"
+              title="ประเภท"
+              value={category}
+              onChange={(e) =>
+                setCategory(
+                  e.target.value
+                )
+              }
+            >
+              {categories.map(
+                (item) => (
+                  <option
+                    key={item}
+                    value={item}
+                  >
+                    {item === "ทั้งหมด"
+                      ? "ทุกประเภท"
+                      : item}
+                  </option>
+                )
+              )}
+            </select>
+
+            {/* STATUS */}
+
+            <select
+              className="form-select equipment-filter"
+              aria-label="สถานะ"
+              title="สถานะ"
+              value={status}
+              onChange={(e) =>
+                setStatus(
+                  e.target.value
+                )
+              }
+            >
+
+              <option value="ทั้งหมด">
+                ทุกสถานะ
+              </option>
+
+              <option value="available">
+                พร้อมใช้งาน
+              </option>
+
+              <option value="borrowed">
+                ถูกยืม
+              </option>
+
+              <option value="maintenance">
+                ซ่อมบำรุง
+              </option>
+
+              <option value="inactive">
+                ไม่พร้อมใช้งาน
+              </option>
+
+              <option value="damaged">
+                ชำรุด
+              </option>
+
+              <option value="lost">
+                สูญหาย
+              </option>
+
+            </select>
+
+            {/* RESET */}
+
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-secondary equipment-reset"
+              onClick={
+                resetFilter
+              }
+              title="ล้างตัวกรอง"
+            >
+              <i className="bi bi-arrow-clockwise me-1" />
+              ล้าง
+            </button>
+
+          </Toolbar>
 
           {/* ============================================
               EQUIPMENT LIST
@@ -429,23 +440,25 @@ export default function EquipmentClient({
 
           {filteredItems.length ===
           0 ? (
-            <div className="card border-0 shadow-sm">
+            <Panel>
 
-              <div className="card-body text-center py-5">
+              <div className="text-center py-5">
 
-                <i className="bi bi-search display-4 text-secondary" />
+                <div className="equipment-empty-icon mx-auto mb-3">
+                  <i className="bi bi-search" />
+                </div>
 
-                <h5 className="mt-3">
+                <p className="fw-semibold mb-1">
                   ไม่พบครุภัณฑ์
-                </h5>
+                </p>
 
-                <p className="text-secondary mb-3">
+                <p className="text-secondary small mb-3">
                   ลองเปลี่ยนคำค้นหาหรือตัวกรอง
                 </p>
 
                 <button
                   type="button"
-                  className="btn btn-outline-primary"
+                  className="btn btn-sm btn-outline-secondary equipment-reset"
                   onClick={
                     resetFilter
                   }
@@ -455,9 +468,9 @@ export default function EquipmentClient({
 
               </div>
 
-            </div>
+            </Panel>
           ) : (
-            <div className="row g-4">
+            <div className="row g-3">
 
               {filteredItems.map(
                 (item) => (
@@ -489,6 +502,7 @@ export default function EquipmentClient({
 
       {selectedItem && (
         <EquipmentModal
+          key={selectedItem.id}
           item={selectedItem}
           onClose={() =>
             setSelectedItem(null)
@@ -505,63 +519,95 @@ export default function EquipmentClient({
         .equipment-main {
           margin-left: 270px;
           min-height: 100vh;
-          background: #f7f7fb;
+          background: #fafafa;
         }
 
-        .equipment-stat-card {
-          background: #ffffff;
-          border: 0;
-          border-radius: 16px;
-          padding: 20px;
-          height: 100%;
-          box-shadow:
-            0 4px 18px
-            rgba(0, 0, 0, 0.05);
+        .equipment-count {
+          font-size: 14px;
+          color: #737373;
         }
 
-        .equipment-icon {
+        .equipment-search {
+          position: relative;
+          flex: 1 1 260px;
+          min-width: 200px;
+        }
+
+        .equipment-search i {
+          position: absolute;
+          left: 12px;
+          top: 50%;
+          transform: translateY(-50%);
+          color: #a3a3a3;
+          font-size: 14px;
+          pointer-events: none;
+        }
+
+        .equipment-search .form-control {
+          padding-left: 34px;
+        }
+
+        .equipment-filter {
+          width: auto;
+          flex: 0 1 200px;
+          min-width: 150px;
+        }
+
+        .equipment-reset {
+          height: 36px;
+          border-radius: 8px;
+          font-size: 13px;
+          font-weight: 500;
+        }
+
+        .equipment-empty-icon {
           width: 48px;
           height: 48px;
-          border-radius: 14px;
+          border-radius: 8px;
           display: flex;
           align-items: center;
           justify-content: center;
-          background: #f0eaff;
-          color: #6f42c1;
-          font-size: 22px;
+          background: #f5f5f5;
+          color: #737373;
+          font-size: 20px;
         }
 
         .equipment-card {
           height: 100%;
-          border: 0;
-          border-radius: 18px;
+          display: flex;
+          flex-direction: column;
+          border: 1px solid #e4e4e4;
+          border-radius: 12px;
           overflow: hidden;
           background: #ffffff;
-          box-shadow:
-            0 4px 18px
-            rgba(0, 0, 0, 0.06);
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
           transition:
-            transform 0.2s ease,
-            box-shadow 0.2s ease;
+            border-color 0.15s ease,
+            box-shadow 0.15s ease;
           cursor: pointer;
         }
 
         .equipment-card:hover {
-          transform:
-            translateY(-4px);
-
-          box-shadow:
-            0 10px 28px
-            rgba(0, 0, 0, 0.1);
+          border-color: #d4d4d4;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
         }
 
         .equipment-image {
-          height: 190px;
-          background: #f3f1f8;
+          height: 180px;
+          background: #f5f5f5;
           display: flex;
           align-items: center;
           justify-content: center;
           overflow: hidden;
+        }
+
+        .equipment-card .equipment-image {
+          border-bottom: 1px solid #e4e4e4;
+        }
+
+        .equipment-modal-image {
+          border: 1px solid #e4e4e4;
+          border-radius: 12px;
         }
 
         .equipment-image img {
@@ -570,53 +616,200 @@ export default function EquipmentClient({
           object-fit: cover;
         }
 
+        .equipment-gallery-main {
+          position: relative;
+          height: 240px;
+          background: #ffffff;
+        }
+
+        .equipment-gallery-main img {
+          object-fit: contain;
+        }
+
+        .equipment-gallery-count {
+          position: absolute;
+          right: 8px;
+          bottom: 8px;
+          padding: 2px 8px;
+          border-radius: 999px;
+          background: rgba(23, 23, 23, 0.7);
+          color: #ffffff;
+          font-size: 12px;
+        }
+
+        .equipment-gallery-thumbs {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          margin-top: 8px;
+        }
+
+        .equipment-gallery-thumb {
+          width: 52px;
+          height: 52px;
+          padding: 0;
+          border: 1px solid #e4e4e4;
+          border-radius: 8px;
+          overflow: hidden;
+          background: #fafafa;
+          opacity: 0.7;
+        }
+
+        .equipment-gallery-thumb.active,
+        .equipment-gallery-thumb:hover {
+          border-color: #6f42c1;
+          opacity: 1;
+        }
+
+        .equipment-gallery-thumb.active {
+          box-shadow: 0 0 0 2px #e9e0ff;
+        }
+
+        .equipment-gallery-thumb img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
         .equipment-placeholder {
-          font-size: 55px;
-          color: #6f42c1;
+          font-size: 44px;
+          color: #a3a3a3;
         }
 
         .equipment-card-body {
-          padding: 20px;
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          padding: 16px;
         }
 
         .equipment-code {
-          font-size: 13px;
+          font-size: 12px;
           color: #6f42c1;
           font-weight: 600;
+          letter-spacing: 0.02em;
         }
 
         .equipment-name {
-          font-size: 18px;
-          font-weight: 700;
-          margin:
-            5px 0 10px;
+          font-size: 15px;
+          font-weight: 600;
+          color: #171717;
+          margin: 4px 0 6px;
         }
 
         .equipment-description {
-          color: #6c757d;
-          font-size: 14px;
-          min-height: 42px;
+          color: #737373;
+          font-size: 13px;
+          min-height: 38px;
+        }
+
+        .equipment-meta {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          margin: 12px 0 14px;
+          padding-top: 12px;
+          border-top: 1px solid #f0f0f0;
         }
 
         .equipment-info {
           display: flex;
           align-items: center;
           gap: 8px;
-          font-size: 14px;
-          color: #555;
-          margin-top: 8px;
+          font-size: 13px;
+          color: #525252;
         }
 
         .equipment-info i {
-          color: #6f42c1;
+          color: #a3a3a3;
         }
 
-        .equipment-status {
-          padding:
-            6px 10px;
-          border-radius: 20px;
+        .equipment-detail-btn {
+          margin-top: auto;
+          border-radius: 8px;
+          font-size: 13px;
+          font-weight: 500;
+          color: #6f42c1;
+          border-color: #d9ccf2;
+        }
+
+        .equipment-detail-btn:hover,
+        .equipment-detail-btn:focus {
+          background: #6f42c1;
+          border-color: #6f42c1;
+          color: #ffffff;
+        }
+
+        .equipment-modal-info-icon {
+          width: 32px;
+          height: 32px;
+          flex-shrink: 0;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: #f5f5f5;
+          color: #525252;
+          font-size: 14px;
+        }
+
+        .equipment-availability {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 12px 14px;
+          border-radius: 10px;
+          border: 1px solid transparent;
+        }
+
+        .equipment-availability > i {
+          font-size: 22px;
+        }
+
+        .equipment-availability.tone-emerald {
+          background: #ecfdf5;
+          border-color: #a7f3d0;
+          color: #047857;
+        }
+
+        .equipment-availability.tone-amber {
+          background: #fffbeb;
+          border-color: #fde68a;
+          color: #b45309;
+        }
+
+        .equipment-availability.tone-rose {
+          background: #fff1f2;
+          border-color: #fecdd3;
+          color: #be123c;
+        }
+
+        .equipment-availability.tone-neutral {
+          background: #f5f5f5;
+          border-color: #e4e4e4;
+          color: #404040;
+        }
+
+        .equipment-history {
+          max-height: 320px;
+          overflow-y: auto;
+        }
+
+        .equipment-history table {
+          font-size: 13px;
+        }
+
+        .equipment-history th {
           font-size: 12px;
           font-weight: 600;
+          color: #737373;
+          white-space: nowrap;
+          background: #fafafa;
+          position: sticky;
+          top: 0;
+        }
+
+        .equipment-history td {
           white-space: nowrap;
         }
 
@@ -629,50 +822,16 @@ export default function EquipmentClient({
 
         }
 
+        @media (max-width: 575.98px) {
+
+          .equipment-filter {
+            flex: 1 1 140px;
+          }
+
+        }
+
       `}</style>
     </>
-  );
-}
-
-/* =========================================================
-   STAT CARD
-========================================================= */
-
-function StatCard({
-  icon,
-  title,
-  value,
-}: {
-  icon: string;
-  title: string;
-  value: number;
-}) {
-  return (
-    <div className="equipment-stat-card">
-
-      <div className="d-flex align-items-center gap-3">
-
-        <div className="equipment-icon">
-          <i
-            className={`bi ${icon}`}
-          />
-        </div>
-
-        <div>
-
-          <div className="text-secondary small">
-            {title}
-          </div>
-
-          <div className="fs-4 fw-bold">
-            {value.toLocaleString()}
-          </div>
-
-        </div>
-
-      </div>
-
-    </div>
   );
 }
 
@@ -697,9 +856,10 @@ function EquipmentCard({
 
       <div className="equipment-image">
 
-        {item.imageUrl ? (
+        {coverImage(item) ? (
+          // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={item.imageUrl}
+            src={coverImage(item) as string}
             alt={item.name}
           />
         ) : (
@@ -736,43 +896,47 @@ function EquipmentCard({
           {item.description}
         </div>
 
-        <div className="equipment-info">
+        <div className="equipment-meta">
 
-          <i className="bi bi-tag" />
+          <div className="equipment-info">
 
-          <span>
-            {item.category}
-          </span>
+            <i className="bi bi-tag" />
 
-        </div>
+            <span>
+              {item.category}
+            </span>
 
-        <div className="equipment-info">
+          </div>
 
-          <i className="bi bi-geo-alt" />
+          <div className="equipment-info">
 
-          <span>
-            {item.location}
-          </span>
+            <i className="bi bi-geo-alt" />
 
-        </div>
+            <span>
+              {item.location}
+            </span>
 
-        <div className="equipment-info">
+          </div>
 
-          <i className="bi bi-box" />
+          <div className="equipment-info">
 
-          <span>
-            คงเหลือ{" "}
-            <strong>
-              {item.availableQuantity}
-            </strong>{" "}
-            / {item.quantity}
-          </span>
+            <i className="bi bi-box" />
+
+            <span>
+              คงเหลือ{" "}
+              <strong>
+                {item.availableQuantity}
+              </strong>{" "}
+              / {item.quantity}
+            </span>
+
+          </div>
 
         </div>
 
         <button
           type="button"
-          className="btn btn-outline-primary w-100 mt-3"
+          className="btn btn-sm btn-outline-secondary equipment-detail-btn w-100"
           onClick={(e) => {
             e.stopPropagation();
             onClick();
@@ -800,43 +964,50 @@ function StatusBadge({
     EquipmentStatus,
     {
       text: string;
-      className: string;
+      tone: Tone;
     }
   > = {
     available: {
       text: "พร้อมใช้งาน",
-      className:
-        "bg-success-subtle text-success",
+      tone: "emerald",
     },
 
     borrowed: {
       text: "ถูกยืม",
-      className:
-        "bg-warning-subtle text-warning-emphasis",
+      tone: "amber",
     },
 
     maintenance: {
       text: "ซ่อมบำรุง",
-      className:
-        "bg-danger-subtle text-danger",
+      tone: "rose",
     },
 
     inactive: {
       text: "ไม่พร้อมใช้งาน",
-      className:
-        "bg-secondary-subtle text-secondary",
+      tone: "neutral",
+    },
+
+    damaged: {
+      text: "ชำรุด",
+      tone: "rose",
+    },
+
+    lost: {
+      text: "สูญหาย",
+      tone: "neutral",
     },
   };
 
   const current =
-    config[status];
+    config[status] ?? {
+      text: status,
+      tone: "neutral" as Tone,
+    };
 
   return (
-    <span
-      className={`equipment-status ${current.className}`}
-    >
+    <Pill tone={current.tone}>
       {current.text}
-    </span>
+    </Pill>
   );
 }
 
@@ -851,6 +1022,57 @@ function EquipmentModal({
   item: EquipmentItem;
   onClose: () => void;
 }) {
+  const [history, setHistory] =
+    useState<HistoryState>({
+      state: "loading",
+    });
+
+  // โหลดประวัติเมื่อเปิด modal (setState อยู่ใน promise callback เท่านั้น)
+  useEffect(() => {
+    const controller = new AbortController();
+
+    fetch(`/api/equipment/${item.id}/history`, {
+      cache: "no-store",
+      signal: controller.signal,
+    })
+      .then(async (res) => {
+        const body = await res.json().catch(() => null);
+
+        if (!res.ok || !body?.success) {
+          setHistory({
+            state: "error",
+            message:
+              body?.message ||
+              "ไม่สามารถโหลดประวัติการยืม–คืนได้",
+          });
+          return;
+        }
+
+        setHistory({
+          state: "ready",
+          history: body.data.history as HistoryEntry[],
+        });
+      })
+      .catch((error: unknown) => {
+        if (
+          error instanceof DOMException &&
+          error.name === "AbortError"
+        ) {
+          return;
+        }
+
+        setHistory({
+          state: "error",
+          message:
+            "ไม่สามารถโหลดประวัติการยืม–คืนได้",
+        });
+      });
+
+    return () => controller.abort();
+  }, [item.id]);
+
+  const current = getAvailability(item);
+
   return (
     <div
       className="modal fade show d-block"
@@ -871,7 +1093,7 @@ function EquipmentModal({
         }
       >
 
-        <div className="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+        <div className="modal-content border-0 rounded-3 overflow-hidden">
 
           {/* HEADER */}
 
@@ -897,26 +1119,7 @@ function EquipmentModal({
 
               <div className="col-md-5">
 
-                <div className="equipment-image rounded-4">
-
-                  {item.imageUrl ? (
-                    <img
-                      src={
-                        item.imageUrl
-                      }
-                      alt={
-                        item.name
-                      }
-                    />
-                  ) : (
-                    <i
-                      className={`bi ${getEquipmentIcon(
-                        item.category
-                      )} equipment-placeholder`}
-                    />
-                  )}
-
-                </div>
+                <EquipmentGallery item={item} />
 
               </div>
 
@@ -932,11 +1135,31 @@ function EquipmentModal({
                   {item.name}
                 </h4>
 
-                <StatusBadge
-                  status={
-                    item.status
-                  }
-                />
+                <div
+                  className={`equipment-availability tone-${current.tone}`}
+                >
+                  <i className={`bi ${current.icon}`} />
+
+                  <div className="flex-grow-1">
+                    <div className="small opacity-75">
+                      สถานะปัจจุบัน
+                    </div>
+
+                    <div className="fw-bold">
+                      {current.text}
+                    </div>
+                  </div>
+
+                  <div className="text-end">
+                    <div className="small opacity-75">
+                      คงเหลือ
+                    </div>
+
+                    <div className="fw-bold">
+                      {item.availableQuantity} / {item.quantity}
+                    </div>
+                  </div>
+                </div>
 
                 <hr />
 
@@ -986,6 +1209,17 @@ function EquipmentModal({
 
             </div>
 
+            {/* HISTORY */}
+
+            <Panel
+              className="mt-4"
+              title="ประวัติการยืม–คืน"
+              description="ใครยืม เมื่อไร และกำหนดคืน (ล่าสุด 50 รายการ)"
+              flush
+            >
+              <HistoryList history={history} />
+            </Panel>
+
           </div>
 
           {/* FOOTER */}
@@ -1011,6 +1245,222 @@ function EquipmentModal({
 }
 
 /* =========================================================
+   GALLERY (รูปหลัก + รูปย่อที่คลิกได้)
+========================================================= */
+
+function EquipmentGallery({
+  item,
+}: {
+  item: EquipmentItem;
+}) {
+  // null = กำลังโหลด
+  const [images, setImages] =
+    useState<StoredImage[] | null>(null);
+  const [active, setActive] = useState(0);
+
+  // setState อยู่ใน promise callback เท่านั้น
+  useEffect(() => {
+    let cancelled = false;
+
+    listImages({
+      ownerType: "equipment",
+      ownerId: item.id,
+    })
+      .then((data) => {
+        if (!cancelled) setImages(data);
+      })
+      .catch(() => {
+        if (!cancelled) setImages([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [item.id]);
+
+  const urls =
+    images && images.length > 0
+      ? images.map((image) => image.url)
+      : [coverImage(item)].filter(
+          (url): url is string => Boolean(url)
+        );
+
+  const index = Math.min(active, Math.max(0, urls.length - 1));
+  const main = urls[index];
+
+  return (
+    <div>
+      <div className="equipment-image equipment-modal-image equipment-gallery-main">
+        {main ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={main}
+            alt={item.name}
+          />
+        ) : (
+          <i
+            className={`bi ${getEquipmentIcon(
+              item.category
+            )} equipment-placeholder`}
+          />
+        )}
+
+        {urls.length > 1 && (
+          <span className="equipment-gallery-count">
+            {index + 1} / {urls.length}
+          </span>
+        )}
+      </div>
+
+      {urls.length > 1 && (
+        <div className="equipment-gallery-thumbs">
+          {urls.map((url, i) => (
+            <button
+              key={url}
+              type="button"
+              className={`equipment-gallery-thumb ${
+                i === index ? "active" : ""
+              }`}
+              onClick={() => setActive(i)}
+              aria-label={`ดูรูปที่ ${i + 1}`}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={url} alt="" />
+            </button>
+          ))}
+        </div>
+      )}
+
+      {images === null && (
+        <div className="small text-secondary mt-2">
+          <span className="spinner-border spinner-border-sm me-2" />
+          กำลังโหลดรูปภาพ...
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* =========================================================
+   CURRENT AVAILABILITY
+========================================================= */
+
+function getAvailability(item: EquipmentItem): {
+  text: string;
+  tone: Tone;
+  icon: string;
+} {
+  switch (item.status) {
+    case "maintenance":
+      return { text: "อยู่ระหว่างซ่อมบำรุง", tone: "rose", icon: "bi-tools" };
+    case "damaged":
+      return { text: "ชำรุด – งดให้ยืม", tone: "rose", icon: "bi-exclamation-triangle" };
+    case "lost":
+      return { text: "สูญหาย – งดให้ยืม", tone: "neutral", icon: "bi-question-circle" };
+    case "inactive":
+      return { text: "ปิดการใช้งาน", tone: "neutral", icon: "bi-x-circle" };
+  }
+
+  if (item.availableQuantity <= 0) {
+    return { text: "ถูกยืมครบแล้ว", tone: "amber", icon: "bi-hourglass-split" };
+  }
+
+  return { text: "พร้อมยืม", tone: "emerald", icon: "bi-check-circle" };
+}
+
+/* =========================================================
+   HISTORY LIST
+========================================================= */
+
+const HISTORY_TONES: Record<HistoryStatus, Tone> = {
+  กำลังยืม: "blue",
+  เกินกำหนด: "rose",
+  คืนแล้ว: "emerald",
+  รออนุมัติ: "amber",
+  ยกเลิก: "neutral",
+};
+
+function formatDateTime(value: string | null) {
+  if (!value) return "-";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "-";
+
+  return date.toLocaleString("th-TH", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
+function HistoryList({
+  history,
+}: {
+  history: HistoryState;
+}) {
+  if (history.state === "loading") {
+    return (
+      <div className="text-center text-secondary small py-4">
+        <span className="spinner-border spinner-border-sm me-2" />
+        กำลังโหลดประวัติ...
+      </div>
+    );
+  }
+
+  if (history.state === "error") {
+    return (
+      <div className="text-center text-danger small py-4">
+        <i className="bi bi-exclamation-circle me-2" />
+        {history.message}
+      </div>
+    );
+  }
+
+  if (history.history.length === 0) {
+    return (
+      <div className="text-center text-secondary small py-4">
+        <i className="bi bi-clock-history me-2" />
+        ยังไม่มีประวัติการยืม–คืน
+      </div>
+    );
+  }
+
+  return (
+    <div className="table-responsive equipment-history">
+      <table className="table table-sm align-middle mb-0">
+        <thead>
+          <tr>
+            <th>ผู้ยืม</th>
+            <th>วันเวลาที่ยืม</th>
+            <th>กำหนดคืน</th>
+            <th>วันที่คืน</th>
+            <th>สถานะ</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {history.history.map((row) => (
+            <tr key={row.id}>
+              <td className="fw-semibold">
+                {row.borrower}
+              </td>
+              <td>{formatDateTime(row.borrowDate)}</td>
+              <td>{formatDateTime(row.dueDate)}</td>
+              <td>{formatDateTime(row.returnDate)}</td>
+              <td>
+                <Pill tone={HISTORY_TONES[row.status] ?? "neutral"}>
+                  {row.status}
+                </Pill>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/* =========================================================
    INFO ROW
 ========================================================= */
 
@@ -1024,11 +1474,13 @@ function InfoRow({
   value: string;
 }) {
   return (
-    <div className="d-flex gap-3 mb-3">
+    <div className="d-flex align-items-center gap-3 mb-2">
 
-      <i
-        className={`bi ${icon} text-primary fs-5`}
-      />
+      <div className="equipment-modal-info-icon">
+        <i
+          className={`bi ${icon}`}
+        />
+      </div>
 
       <div>
 

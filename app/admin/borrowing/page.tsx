@@ -1,7 +1,24 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Swal from "sweetalert2";
 import AdminNavbar from "@/app/components/AdminNavbar";
+import {
+  PageHeader,
+  Panel,
+  Pill,
+  StatCard,
+  Toolbar,
+  type Tone,
+} from "@/app/components/ui";
+import BorrowingPhotos, {
+  PhotoPicker,
+  photoFailureText,
+  releasePhotos,
+  uploadPhotos,
+  type PickedPhoto,
+  type UploadProgress,
+} from "@/app/components/BorrowingPhotos";
 
 import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap-icons/font/bootstrap-icons.css";
@@ -13,147 +30,93 @@ type BorrowStatus =
   | "เกินกำหนด"
   | "ยกเลิก";
 
+type BorrowAction = "approve" | "reject" | "return";
+
 type BorrowItem = {
-  id: string;
-  user: string;
-  studentId: string;
-  department: string;
-  equipment: string;
+  id: number;
+  borrowId: string;
+  borrower: string;
+  email: string;
+  equipmentName: string;
   equipmentCode: string;
   category: string;
   borrowDate: string;
   dueDate: string;
-  returnDate?: string;
-  status: BorrowStatus;
+  returnDate: string | null;
+  quantity: number;
   purpose: string;
-  phone: string;
-  note?: string;
+  note: string;
+  status: BorrowStatus;
 };
 
-const initialBorrowItems: BorrowItem[] = [
+const canApprove = (s: BorrowStatus) => s === "รออนุมัติ";
+const canReturn = (s: BorrowStatus) =>
+  s === "กำลังยืม" || s === "เกินกำหนด";
+const canCancel = (s: BorrowStatus) =>
+  canApprove(s) || canReturn(s);
+
+function formatDate(value: string | null | undefined) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleDateString("th-TH", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+async function fetchBorrowings(): Promise<BorrowItem[]> {
+  const res = await fetch("/api/admin/borrowings", {
+    cache: "no-store",
+  });
+
+  const result = await res.json().catch(() => null);
+
+  if (!res.ok || !result?.success) {
+    throw new Error(
+      result?.message || "ไม่สามารถดึงข้อมูลรายการยืมได้"
+    );
+  }
+
+  return result.data as BorrowItem[];
+}
+
+const ACTION_CONFIRM: Record<
+  BorrowAction,
   {
-    id: "BR-2026-00125",
-    user: "สมชาย ใจดี",
-    studentId: "650110001",
-    department: "เทคโนโลยีสารสนเทศ",
-    equipment: "Canon EOS 90D",
-    equipmentCode: "EQ-CAM-001",
-    category: "กล้องถ่ายภาพ",
-    borrowDate: "06/09/2026",
-    dueDate: "08/09/2026",
-    status: "กำลังยืม",
-    purpose: "ถ่ายทำวิดีโอสำหรับโครงงาน",
-    phone: "08X-XXX-1234",
-    note: "รับอุปกรณ์ที่ห้องพัสดุ",
+    title: string;
+    confirmText: string;
+    icon: "question" | "warning";
+    success: string;
+  }
+> = {
+  approve: {
+    title: "ยืนยันการอนุมัติ?",
+    confirmText: "ยืนยันอนุมัติ",
+    icon: "question",
+    success: "อนุมัติการยืมสำเร็จ",
   },
-  {
-    id: "BR-2026-00124",
-    user: "กมลชนก แสงดี",
-    studentId: "650110025",
-    department: "สังคมศาสตร์",
-    equipment: "MacBook Pro 14",
-    equipmentCode: "EQ-PC-004",
-    category: "คอมพิวเตอร์",
-    borrowDate: "05/09/2026",
-    dueDate: "07/09/2026",
-    returnDate: "07/09/2026",
-    status: "คืนแล้ว",
-    purpose: "ใช้จัดทำงานวิจัย",
-    phone: "08X-XXX-5678",
+  reject: {
+    title: "ต้องการยกเลิกรายการ?",
+    confirmText: "ยกเลิกรายการ",
+    icon: "warning",
+    success: "ยกเลิกรายการสำเร็จ",
   },
-  {
-    id: "BR-2026-00123",
-    user: "ธนกร ใจบุญ",
-    studentId: "640110087",
-    department: "รัฐศาสตร์",
-    equipment: "Sony Alpha A6400",
-    equipmentCode: "EQ-CAM-002",
-    category: "กล้องถ่ายภาพ",
-    borrowDate: "04/09/2026",
-    dueDate: "06/09/2026",
-    returnDate: "06/09/2026",
-    status: "คืนแล้ว",
-    purpose: "บันทึกกิจกรรมของคณะ",
-    phone: "09X-XXX-2468",
+  return: {
+    title: "ยืนยันการรับคืนครุภัณฑ์?",
+    confirmText: "บันทึกการคืน",
+    icon: "question",
+    success: "บันทึกการคืนสำเร็จ",
   },
-  {
-    id: "BR-2026-00122",
-    user: "พิมพ์ชนก สุขใจ",
-    studentId: "650110113",
-    department: "สังคมวิทยา",
-    equipment: "Epson EB-X06",
-    equipmentCode: "EQ-PRO-003",
-    category: "โปรเจคเตอร์",
-    borrowDate: "03/09/2026",
-    dueDate: "05/09/2026",
-    status: "เกินกำหนด",
-    purpose: "ใช้สำหรับนำเสนอรายงาน",
-    phone: "08X-XXX-9999",
-    note: "ยังไม่ได้ส่งคืน",
-  },
-  {
-    id: "BR-2026-00121",
-    user: "อาจารย์วิชัย สมบูรณ์",
-    studentId: "STAFF-001",
-    department: "คณะสังคมศาสตร์",
-    equipment: "iPad Air",
-    equipmentCode: "EQ-TAB-005",
-    category: "แท็บเล็ต",
-    borrowDate: "02/09/2026",
-    dueDate: "04/09/2026",
-    returnDate: "04/09/2026",
-    status: "คืนแล้ว",
-    purpose: "ใช้ประกอบการเรียนการสอน",
-    phone: "08X-XXX-5555",
-  },
-  {
-    id: "BR-2026-00120",
-    user: "ณัฐวุฒิ พรหมมา",
-    studentId: "660110045",
-    department: "ภูมิศาสตร์",
-    equipment: "Zoom H6",
-    equipmentCode: "EQ-AUD-001",
-    category: "เครื่องเสียง",
-    borrowDate: "01/09/2026",
-    dueDate: "10/09/2026",
-    status: "กำลังยืม",
-    purpose: "บันทึกเสียงภาคสนาม",
-    phone: "09X-XXX-1111",
-  },
-  {
-    id: "BR-2026-00119",
-    user: "ศิริพร วัฒนะ",
-    studentId: "660110078",
-    department: "สังคมศาสตร์",
-    equipment: "Canon EOS 90D",
-    equipmentCode: "EQ-CAM-001",
-    category: "กล้องถ่ายภาพ",
-    borrowDate: "01/09/2026",
-    dueDate: "03/09/2026",
-    returnDate: "03/09/2026",
-    status: "คืนแล้ว",
-    purpose: "ถ่ายภาพกิจกรรม",
-    phone: "08X-XXX-7777",
-  },
-  {
-    id: "BR-2026-00118",
-    user: "กิตติพงษ์ แก้วดี",
-    studentId: "650110091",
-    department: "รัฐศาสตร์",
-    equipment: "Dell Latitude 5440",
-    equipmentCode: "EQ-PC-007",
-    category: "คอมพิวเตอร์",
-    borrowDate: "31/08/2026",
-    dueDate: "10/09/2026",
-    status: "รออนุมัติ",
-    purpose: "ใช้ทำงานกลุ่ม",
-    phone: "09X-XXX-3333",
-  },
-];
+};
 
 export default function AdminBorrowingPage() {
-  const [items, setItems] =
-    useState<BorrowItem[]>(initialBorrowItems);
+  const [items, setItems] = useState<BorrowItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [submittingId, setSubmittingId] =
+    useState<number | null>(null);
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] =
@@ -165,11 +128,48 @@ export default function AdminBorrowingPage() {
   const [showModal, setShowModal] =
     useState(false);
 
-  const [showApproveModal, setShowApproveModal] =
-    useState(false);
-
-  const [approveTarget, setApproveTarget] =
+  // ยืนยันรับคืน (แนบรูปสภาพตอนคืนได้)
+  const [returnTarget, setReturnTarget] =
     useState<BorrowItem | null>(null);
+  const [returnPhotos, setReturnPhotos] =
+    useState<PickedPhoto[]>([]);
+  const [uploadProgress, setUploadProgress] =
+    useState<UploadProgress | null>(null);
+
+  const closeReturnModal = () => {
+    releasePhotos(returnPhotos);
+    setReturnPhotos([]);
+    setReturnTarget(null);
+  };
+
+  /* =========================================================
+     LOAD
+  ========================================================= */
+
+  const loadItems = useCallback(async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      setItems(await fetchBorrowings());
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "เกิดข้อผิดพลาด"
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void loadItems();
+    }, 0);
+
+    return () => clearTimeout(timer);
+  }, [loadItems]);
 
   /* =========================================================
      FILTER
@@ -181,10 +181,10 @@ export default function AdminBorrowingPage() {
 
       const matchSearch =
         !keyword ||
-        item.id.toLowerCase().includes(keyword) ||
-        item.user.toLowerCase().includes(keyword) ||
-        item.studentId.toLowerCase().includes(keyword) ||
-        item.equipment.toLowerCase().includes(keyword) ||
+        item.borrowId.toLowerCase().includes(keyword) ||
+        item.borrower.toLowerCase().includes(keyword) ||
+        item.email.toLowerCase().includes(keyword) ||
+        item.equipmentName.toLowerCase().includes(keyword) ||
         item.equipmentCode.toLowerCase().includes(keyword);
 
       const matchStatus =
@@ -237,236 +237,163 @@ export default function AdminBorrowingPage() {
   };
 
   /* =========================================================
-     APPROVE
+     ACTIONS (approve / reject / return)
   ========================================================= */
 
-  const openApprove = (item: BorrowItem) => {
-    setApproveTarget(item);
-    setShowApproveModal(true);
+  const runAction = async (
+    item: BorrowItem,
+    action: BorrowAction
+  ) => {
+    if (submittingId !== null) return;
+
+    // รับคืน → เปิดหน้าต่างยืนยันที่แนบรูปได้
+    if (action === "return") {
+      setReturnPhotos([]);
+      setReturnTarget(item);
+      return;
+    }
+
+    const config = ACTION_CONFIRM[action];
+
+    const confirm = await Swal.fire({
+      title: config.title,
+      html: `
+        <div>
+          <strong>${escapeHtml(item.borrowId)}</strong>
+          <div class="text-secondary mt-2">
+            ${escapeHtml(item.borrower)}<br />
+            ${escapeHtml(item.equipmentName)}
+          </div>
+        </div>
+      `,
+      icon: config.icon,
+      showCancelButton: true,
+      confirmButtonText: config.confirmText,
+      cancelButtonText: "ปิด",
+      confirmButtonColor: "#6f42c1",
+    });
+
+    if (!confirm.isConfirmed) return;
+
+    await executeAction(item, action);
   };
 
-  const approveBorrow = () => {
-    if (!approveTarget) return;
+  const executeAction = async (
+    item: BorrowItem,
+    action: BorrowAction,
+    photos: PickedPhoto[] = []
+  ) => {
+    const config = ACTION_CONFIRM[action];
 
-    setItems((current) =>
-      current.map((item) =>
-        item.id === approveTarget.id
-          ? {
-              ...item,
-              status: "กำลังยืม",
-            }
-          : item
-      )
-    );
+    setSubmittingId(item.id);
 
-    setShowApproveModal(false);
-    setApproveTarget(null);
+    try {
+      const res = await fetch(
+        `/api/admin/borrowings/${item.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action }),
+        }
+      );
+
+      const result = await res.json().catch(() => null);
+
+      if (!res.ok || !result?.success) {
+        throw new Error(
+          result?.message || "ไม่สามารถดำเนินการได้"
+        );
+      }
+
+      const photoSummary = await uploadPhotos(
+        item.id,
+        "return",
+        photos,
+        setUploadProgress
+      );
+      const photoFailure = photoFailureText(photoSummary);
+
+      setUploadProgress(null);
+      if (action === "return") closeReturnModal();
+      if (showModal) closeDetails();
+
+      await loadItems();
+
+      await Swal.fire({
+        title: "สำเร็จ",
+        text: `${result.message || config.success}${
+          photoFailure ? ` ${photoFailure}` : ""
+        }`,
+        icon: photoFailure ? "warning" : "success",
+        confirmButtonText: "ตกลง",
+        confirmButtonColor: "#6f42c1",
+      });
+    } catch (err) {
+      Swal.fire({
+        title: "ไม่สำเร็จ",
+        text:
+          err instanceof Error
+            ? err.message
+            : "เกิดข้อผิดพลาด",
+        icon: "error",
+        confirmButtonText: "ตกลง",
+        confirmButtonColor: "#6f42c1",
+      });
+    } finally {
+      setSubmittingId(null);
+      setUploadProgress(null);
+    }
   };
 
-  /* =========================================================
-     CANCEL
-  ========================================================= */
-
-  const cancelBorrow = (item: BorrowItem) => {
-    const confirmed = window.confirm(
-      `ต้องการยกเลิกรายการ ${item.id} หรือไม่?`
-    );
-
-    if (!confirmed) return;
-
-    setItems((current) =>
-      current.map((x) =>
-        x.id === item.id
-          ? {
-              ...x,
-              status: "ยกเลิก",
-            }
-          : x
-      )
-    );
-  };
-
-  /* =========================================================
-     RETURN
-  ========================================================= */
-
-  const markReturned = (item: BorrowItem) => {
-    const confirmed = window.confirm(
-      `ยืนยันการรับคืน "${item.equipment}" จาก ${item.user} หรือไม่?`
-    );
-
-    if (!confirmed) return;
-
-    setItems((current) =>
-      current.map((x) =>
-        x.id === item.id
-          ? {
-              ...x,
-              status: "คืนแล้ว",
-              returnDate: new Date().toLocaleDateString("th-TH"),
-            }
-          : x
-      )
-    );
-  };
+  const busy = submittingId !== null;
 
   return (
-    <main className="bg-light min-vh-100">
+    <main className="min-vh-100">
 
       <AdminNavbar />
 
-      {/* =====================================================
-          MAIN CONTENT
-      ===================================================== */}
+      <section className="admin-page-content">
 
-      <section className="admin-page-content admin-borrowing-page">
+        <div className="ui-page p-0">
 
-        <div className="container-fluid">
+          {/* HEADER */}
 
-          {/* =====================================================
-              HEADER
-          ===================================================== */}
+          <PageHeader
+            eyebrow="การยืม"
+            title="รายการยืม–คืน"
+            description="จัดการ ตรวจสอบ และติดตามรายการยืม–คืนครุภัณฑ์"
+            actions={
+              <button
+                type="button"
+                className="btn btn-outline-secondary"
+                onClick={() => void loadItems()}
+                disabled={loading}
+              >
+                <i
+                  className={`bi bi-arrow-clockwise me-2 ${loading ? "br-spin" : ""}`}
+                ></i>
+                รีเฟรช
+              </button>
+            }
+          />
 
-          <div className="admin-borrowing-header mb-4">
+          {/* ERROR */}
 
-            <div>
+          {error && (
+            <div className="alert alert-danger br-alert mb-0">
 
-              <h2 className="admin-page-title">
-                รายการยืม–คืน
-              </h2>
+              <div className="d-flex align-items-start gap-3">
 
-              <p className="admin-page-subtitle mb-0">
-                จัดการ ตรวจสอบ และติดตามรายการยืม–คืนครุภัณฑ์
-              </p>
-            </div>
+                <i className="bi bi-exclamation-triangle fs-5"></i>
 
-          </div>
+                <div>
 
-
-          {/* =====================================================
-              STATISTICS
-          ===================================================== */}
-
-          <div className="row g-3 mb-4">
-
-            <StatCard
-              title="รายการทั้งหมด"
-              value={stats.total}
-              icon="bi-list-check"
-              color="#6f42c1"
-            />
-
-            <StatCard
-              title="รออนุมัติ"
-              value={stats.pending}
-              icon="bi-hourglass-split"
-              color="#fd7e14"
-            />
-
-            <StatCard
-              title="กำลังยืม"
-              value={stats.borrowing}
-              icon="bi-box-arrow-up-right"
-              color="#0d6efd"
-            />
-
-            <StatCard
-              title="คืนแล้ว"
-              value={stats.returned}
-              icon="bi-check-circle"
-              color="#198754"
-            />
-
-            <StatCard
-              title="เกินกำหนด"
-              value={stats.overdue}
-              icon="bi-exclamation-circle"
-              color="#dc3545"
-            />
-
-          </div>
-
-
-          {/* =====================================================
-              FILTER
-          ===================================================== */}
-
-          <div className="card border-0 shadow-sm rounded-4 mb-4">
-
-            <div className="card-body p-4">
-
-              <div className="row g-3">
-
-                <div className="col-lg-6">
-
-                  <label className="form-label fw-semibold">
-                    ค้นหารายการ
-                  </label>
-
-                  <div className="input-group">
-
-                    <span className="input-group-text bg-white">
-                      <i className="bi bi-search"></i>
-                    </span>
-
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="ค้นหาเลขรายการ, ชื่อผู้ยืม, รหัสนักศึกษา หรือครุภัณฑ์..."
-                      value={search}
-                      onChange={(e) =>
-                        setSearch(e.target.value)
-                      }
-                    />
-
-                    {search && (
-                      <button
-                        type="button"
-                        className="btn btn-outline-secondary"
-                        onClick={() => setSearch("")}
-                      >
-                        <i className="bi bi-x"></i>
-                      </button>
-                    )}
-
+                  <div className="fw-semibold">
+                    ไม่สามารถโหลดข้อมูลรายการยืมได้
                   </div>
 
-                </div>
-
-
-                <div className="col-lg-3">
-
-                  <label className="form-label fw-semibold">
-                    สถานะ
-                  </label>
-
-                  <select
-                    className="form-select"
-                    value={statusFilter}
-                    onChange={(e) =>
-                      setStatusFilter(e.target.value)
-                    }
-                  >
-                    <option>ทั้งหมด</option>
-                    <option>รออนุมัติ</option>
-                    <option>กำลังยืม</option>
-                    <option>คืนแล้ว</option>
-                    <option>เกินกำหนด</option>
-                    <option>ยกเลิก</option>
-                  </select>
-
-                </div>
-
-
-                <div className="col-lg-3">
-
-                  <label className="form-label fw-semibold">
-                    จำนวนรายการ
-                  </label>
-
-                  <div className="form-control bg-light">
-                    แสดง {filteredItems.length} จาก{" "}
-                    {items.length} รายการ
+                  <div className="small mt-1">
+                    {error}
                   </div>
 
                 </div>
@@ -474,359 +401,437 @@ export default function AdminBorrowingPage() {
               </div>
 
             </div>
+          )}
+
+          {/* STATISTICS */}
+
+          <div className="row g-3">
+
+            <div className="col-6 col-xl">
+              <StatCard
+                label="รายการทั้งหมด"
+                value={stats.total}
+                icon="bi-list-check"
+                tone="purple"
+              />
+            </div>
+
+            <div className="col-6 col-xl">
+              <StatCard
+                label="รออนุมัติ"
+                value={stats.pending}
+                icon="bi-hourglass-split"
+                tone="amber"
+              />
+            </div>
+
+            <div className="col-6 col-xl">
+              <StatCard
+                label="กำลังยืม"
+                value={stats.borrowing}
+                icon="bi-box-arrow-up-right"
+                tone="blue"
+              />
+            </div>
+
+            <div className="col-6 col-xl">
+              <StatCard
+                label="คืนแล้ว"
+                value={stats.returned}
+                icon="bi-check-circle"
+                tone="emerald"
+              />
+            </div>
+
+            <div className="col-12 col-xl">
+              <StatCard
+                label="เกินกำหนด"
+                value={stats.overdue}
+                icon="bi-exclamation-circle"
+                tone="rose"
+              />
+            </div>
 
           </div>
 
+          {/* FILTER */}
 
-          {/* =====================================================
-              TABLE
-          ===================================================== */}
+          <Toolbar>
 
-          <div className="card border-0 shadow-sm rounded-4">
+            <div className="input-group br-search">
 
-            <div className="card-body p-0">
+              <span className="input-group-text bg-white">
+                <i className="bi bi-search text-secondary"></i>
+              </span>
 
-              <div className="p-4 border-bottom">
+              <input
+                type="text"
+                className="form-control border-start-0"
+                placeholder="ค้นหาเลขรายการ, ชื่อผู้ยืม, อีเมล หรือครุภัณฑ์..."
+                aria-label="ค้นหารายการ"
+                value={search}
+                onChange={(e) =>
+                  setSearch(e.target.value)
+                }
+              />
 
-                <div className="d-flex justify-content-between align-items-center">
+              {search && (
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary"
+                  onClick={() => setSearch("")}
+                >
+                  <i className="bi bi-x"></i>
+                </button>
+              )}
 
-                  <div>
+            </div>
 
-                    <h5 className="fw-bold mb-1">
-                      รายการยืม–คืนทั้งหมด
-                    </h5>
+            <select
+              className="form-select w-auto"
+              aria-label="สถานะ"
+              value={statusFilter}
+              onChange={(e) =>
+                setStatusFilter(e.target.value)
+              }
+            >
+              <option>ทั้งหมด</option>
+              <option>รออนุมัติ</option>
+              <option>กำลังยืม</option>
+              <option>คืนแล้ว</option>
+              <option>เกินกำหนด</option>
+              <option>ยกเลิก</option>
+            </select>
 
-                    <small className="text-secondary">
-                      ตรวจสอบสถานะและรายละเอียดการยืมครุภัณฑ์
-                    </small>
+            <small className="text-secondary ms-auto">
+              แสดง {filteredItems.length} จาก{" "}
+              {items.length} รายการ
+            </small>
 
-                  </div>
+          </Toolbar>
 
-                  <span className="badge bg-light text-dark border rounded-pill px-3 py-2">
-                    {filteredItems.length} รายการ
-                  </span>
+          {/* TABLE */}
 
-                </div>
+          <Panel
+            flush
+            title="รายการยืม–คืนทั้งหมด"
+            description="ตรวจสอบสถานะและรายละเอียดการยืมครุภัณฑ์"
+            action={
+              <Pill tone="neutral">
+                {filteredItems.length} รายการ
+              </Pill>
+            }
+          >
 
-              </div>
+            <div className="table-responsive">
 
+              <table className="table align-middle ui-table br-table">
 
-              <div className="table-responsive">
+                <thead>
 
-                <table className="table table-hover align-middle mb-0 admin-borrowing-table">
+                  <tr>
+                    <th>รายการ</th>
+                    <th>ผู้ยืม</th>
+                    <th>ครุภัณฑ์</th>
+                    <th>วันที่ยืม</th>
+                    <th>กำหนดคืน</th>
+                    <th>สถานะ</th>
+                    <th className="text-end">จัดการ</th>
+                  </tr>
 
-                  <thead className="table-light">
+                </thead>
+
+                <tbody>
+
+                  {loading && items.length === 0 ? (
 
                     <tr>
 
-                      <th className="px-4 py-3">
-                        รายการ
-                      </th>
+                      <td
+                        colSpan={7}
+                        className="text-center py-5"
+                      >
 
-                      <th>
-                        ผู้ยืม
-                      </th>
+                        <div className="spinner-border spinner-border-sm text-secondary"></div>
 
-                      <th>
-                        ครุภัณฑ์
-                      </th>
+                        <div className="text-secondary small mt-2">
+                          กำลังโหลดข้อมูล...
+                        </div>
 
-                      <th>
-                        วันที่ยืม
-                      </th>
-
-                      <th>
-                        กำหนดคืน
-                      </th>
-
-                      <th>
-                        สถานะ
-                      </th>
-
-                      <th className="text-end px-4">
-                        จัดการ
-                      </th>
+                      </td>
 
                     </tr>
 
-                  </thead>
+                  ) : filteredItems.length === 0 ? (
 
+                    <tr>
 
-                  <tbody>
+                      <td
+                        colSpan={7}
+                        className="text-center py-5"
+                      >
 
-                    {filteredItems.length === 0 ? (
+                        <i className="bi bi-search fs-3 text-secondary"></i>
 
-                      <tr>
+                        <div className="fw-semibold mt-2">
+                          ไม่พบรายการ
+                        </div>
 
-                        <td
-                          colSpan={7}
-                          className="text-center py-5"
-                        >
+                        <small className="text-secondary">
+                          {items.length === 0
+                            ? "ยังไม่มีรายการยืมในระบบ"
+                            : "ลองเปลี่ยนคำค้นหาหรือตัวกรอง"}
+                        </small>
 
-                          <i className="bi bi-search display-5 text-secondary"></i>
+                      </td>
 
-                          <div className="fw-semibold mt-3">
-                            ไม่พบรายการ
+                    </tr>
+
+                  ) : (
+
+                    filteredItems.map((item) => (
+
+                      <tr key={item.id}>
+
+                        {/* ID */}
+
+                        <td>
+
+                          <div className="fw-semibold">
+                            {item.borrowId}
                           </div>
 
                           <small className="text-secondary">
-                            ลองเปลี่ยนคำค้นหาหรือตัวกรอง
+                            {item.category}
                           </small>
 
                         </td>
 
-                      </tr>
+                        {/* USER */}
 
-                    ) : (
+                        <td>
 
-                      filteredItems.map((item) => (
+                          <div className="d-flex align-items-center gap-2">
 
-                        <tr key={item.id}>
-
-                          {/* ID */}
-
-                          <td className="px-4">
-
-                            <div className="fw-semibold">
-                              {item.id}
+                            <div className="br-icon tone-neutral">
+                              <i className="bi bi-person-fill"></i>
                             </div>
 
-                            <small className="text-secondary">
-                              {item.category}
-                            </small>
+                            <div>
 
-                          </td>
-
-
-                          {/* USER */}
-
-                          <td>
-
-                            <div className="d-flex align-items-center gap-2">
-
-                              <div className="borrow-user-icon">
-
-                                <i className="bi bi-person-fill"></i>
-
+                              <div className="fw-semibold">
+                                {item.borrower}
                               </div>
 
-                              <div>
-
-                                <div className="fw-semibold">
-                                  {item.user}
-                                </div>
-
-                                <small className="text-secondary">
-                                  {item.studentId}
-                                </small>
-
-                              </div>
+                              <small className="text-secondary">
+                                {item.email}
+                              </small>
 
                             </div>
 
-                          </td>
+                          </div>
 
+                        </td>
 
-                          {/* EQUIPMENT */}
+                        {/* EQUIPMENT */}
 
-                          <td>
+                        <td>
 
-                            <div className="d-flex align-items-center gap-2">
+                          <div className="d-flex align-items-center gap-2">
 
-                              <div className="borrow-equipment-icon">
+                            <div className="br-icon tone-purple">
+                              <i className="bi bi-box-seam"></i>
+                            </div>
 
-                                <i className="bi bi-box-seam"></i>
+                            <div>
 
+                              <div className="fw-semibold">
+                                {item.equipmentName}
                               </div>
 
-                              <div>
-
-                                <div className="fw-semibold">
-                                  {item.equipment}
-                                </div>
-
-                                <small className="text-secondary">
-                                  {item.equipmentCode}
-                                </small>
-
-                              </div>
+                              <small className="text-secondary">
+                                {item.equipmentCode}
+                                {item.quantity > 1
+                                  ? ` · ${item.quantity} ชิ้น`
+                                  : ""}
+                              </small>
 
                             </div>
 
-                          </td>
+                          </div>
 
+                        </td>
 
-                          {/* BORROW DATE */}
+                        {/* BORROW DATE */}
 
-                          <td>
-                            {item.borrowDate}
-                          </td>
+                        <td>
+                          {formatDate(item.borrowDate)}
+                        </td>
 
+                        {/* DUE DATE */}
 
-                          {/* DUE DATE */}
+                        <td>
 
-                          <td>
+                          <span
+                            className={
+                              item.status === "เกินกำหนด"
+                                ? "text-danger fw-semibold"
+                                : ""
+                            }
+                          >
+                            {formatDate(item.dueDate)}
+                          </span>
 
-                            <span
-                              className={
-                                item.status === "เกินกำหนด"
-                                  ? "text-danger fw-semibold"
-                                  : ""
-                              }
+                        </td>
+
+                        {/* STATUS */}
+
+                        <td>
+                          <StatusBadge status={item.status} />
+                        </td>
+
+                        {/* ACTION */}
+
+                        <td className="text-end">
+
+                          <div className="dropdown">
+
+                            <button
+                              type="button"
+                              className="btn btn-sm br-action"
+                              data-bs-toggle="dropdown"
+                              aria-expanded="false"
+                              disabled={submittingId === item.id}
                             >
-                              {item.dueDate}
-                            </span>
-
-                          </td>
-
-
-                          {/* STATUS */}
-
-                          <td>
-                            <StatusBadge status={item.status} />
-                          </td>
-
-
-                          {/* ACTION */}
-
-                          <td className="text-end px-4">
-
-                            <div className="dropdown">
-
-                              <button
-                                type="button"
-                                className="btn btn-light border rounded-3 borrowing-action-btn"
-                                data-bs-toggle="dropdown"
-                                aria-expanded="false"
-                              >
+                              {submittingId === item.id ? (
+                                <span className="spinner-border spinner-border-sm"></span>
+                              ) : (
                                 <i className="bi bi-three-dots"></i>
-                              </button>
+                              )}
+                            </button>
 
-                              <ul className="dropdown-menu dropdown-menu-end shadow-sm border-0">
+                            <ul className="dropdown-menu dropdown-menu-end br-menu">
+
+                              <li>
+
+                                <button
+                                  type="button"
+                                  className="dropdown-item"
+                                  onClick={() =>
+                                    openDetails(item)
+                                  }
+                                >
+                                  <i className="bi bi-eye me-2"></i>
+                                  ดูรายละเอียด
+                                </button>
+
+                              </li>
+
+                              {canCancel(item.status) && (
+                                <li>
+                                  <hr className="dropdown-divider" />
+                                </li>
+                              )}
+
+                              {canApprove(item.status) && (
 
                                 <li>
 
                                   <button
                                     type="button"
-                                    className="dropdown-item"
+                                    className="dropdown-item text-success"
+                                    disabled={busy}
                                     onClick={() =>
-                                      openDetails(item)
+                                      runAction(item, "approve")
                                     }
                                   >
-                                    <i className="bi bi-eye me-2"></i>
-                                    ดูรายละเอียด
+                                    <i className="bi bi-check-circle me-2"></i>
+                                    อนุมัติการยืม
                                   </button>
 
                                 </li>
 
+                              )}
 
-                                {item.status === "รออนุมัติ" && (
-                                  <>
+                              {canReturn(item.status) && (
 
-                                    <li>
-                                      <hr className="dropdown-divider" />
-                                    </li>
+                                <li>
 
-                                    <li>
+                                  <button
+                                    type="button"
+                                    className="dropdown-item text-success"
+                                    disabled={busy}
+                                    onClick={() =>
+                                      runAction(item, "return")
+                                    }
+                                  >
+                                    <i className="bi bi-box-arrow-in-down-left me-2"></i>
+                                    รับคืนครุภัณฑ์
+                                  </button>
 
-                                      <button
-                                        type="button"
-                                        className="dropdown-item text-success"
-                                        onClick={() =>
-                                          openApprove(item)
-                                        }
-                                      >
-                                        <i className="bi bi-check-circle me-2"></i>
-                                        อนุมัติการยืม
-                                      </button>
+                                </li>
 
-                                    </li>
+                              )}
 
-                                    <li>
+                              {canCancel(item.status) && (
 
-                                      <button
-                                        type="button"
-                                        className="dropdown-item text-danger"
-                                        onClick={() =>
-                                          cancelBorrow(item)
-                                        }
-                                      >
-                                        <i className="bi bi-x-circle me-2"></i>
-                                        ยกเลิกรายการ
-                                      </button>
+                                <li>
 
-                                    </li>
+                                  <button
+                                    type="button"
+                                    className="dropdown-item text-danger"
+                                    disabled={busy}
+                                    onClick={() =>
+                                      runAction(item, "reject")
+                                    }
+                                  >
+                                    <i className="bi bi-x-circle me-2"></i>
+                                    ยกเลิกรายการ
+                                  </button>
 
-                                  </>
-                                )}
+                                </li>
 
+                              )}
 
-                                {item.status === "กำลังยืม" && (
+                            </ul>
 
-                                  <li>
+                          </div>
 
-                                    <button
-                                      type="button"
-                                      className="dropdown-item text-success"
-                                      onClick={() =>
-                                        markReturned(item)
-                                      }
-                                    >
-                                      <i className="bi bi-box-arrow-in-down-left me-2"></i>
-                                      รับคืนครุภัณฑ์
-                                    </button>
+                        </td>
 
-                                  </li>
+                      </tr>
 
-                                )}
+                    ))
 
-                              </ul>
+                  )}
 
-                            </div>
+                </tbody>
 
-                          </td>
-
-                        </tr>
-
-                      ))
-
-                    )}
-
-                  </tbody>
-
-                </table>
-
-              </div>
-
-
-              {/* FOOTER */}
-
-              <div className="p-4 border-top">
-
-                <div className="d-flex flex-column flex-md-row justify-content-between align-items-center gap-2">
-
-                  <small className="text-secondary">
-                    แสดง {filteredItems.length} รายการ
-                    จากทั้งหมด {items.length} รายการ
-                  </small>
-
-                  <small className="text-secondary">
-                    ระบบยืม–คืนครุภัณฑ์
-                    คณะสังคมศาสตร์ มหาวิทยาลัยเชียงใหม่
-                  </small>
-
-                </div>
-
-              </div>
+              </table>
 
             </div>
 
-          </div>
+            {/* FOOTER */}
+
+            <div className="br-footer">
+
+              <small className="text-secondary">
+                แสดง {filteredItems.length} รายการ
+                จากทั้งหมด {items.length} รายการ
+              </small>
+
+              <small className="text-secondary">
+                ระบบยืม–คืนครุภัณฑ์
+                คณะสังคมศาสตร์ มหาวิทยาลัยเชียงใหม่
+              </small>
+
+            </div>
+
+          </Panel>
 
         </div>
 
       </section>
-
 
       {/* =====================================================
           DETAIL MODAL
@@ -835,7 +840,7 @@ export default function AdminBorrowingPage() {
       {showModal && selectedItem && (
 
         <div
-          className="modal fade show d-block admin-modal-backdrop"
+          className="modal fade show d-block br-modal-backdrop"
           tabIndex={-1}
           onClick={closeDetails}
         >
@@ -845,9 +850,9 @@ export default function AdminBorrowingPage() {
             onClick={(e) => e.stopPropagation()}
           >
 
-            <div className="modal-content border-0 rounded-4 shadow-lg">
+            <div className="modal-content br-modal">
 
-              <div className="modal-header border-0 p-4">
+              <div className="modal-header px-4 py-3">
 
                 <div>
 
@@ -856,7 +861,7 @@ export default function AdminBorrowingPage() {
                   </small>
 
                   <h5 className="modal-title fw-bold mt-1">
-                    {selectedItem.id}
+                    {selectedItem.borrowId}
                   </h5>
 
                 </div>
@@ -869,12 +874,11 @@ export default function AdminBorrowingPage() {
 
               </div>
 
-
-              <div className="modal-body px-4 pb-4">
+              <div className="modal-body p-4">
 
                 {/* STATUS */}
 
-                <div className="d-flex justify-content-between align-items-center bg-light rounded-4 p-3 mb-4">
+                <div className="br-soft d-flex justify-content-between align-items-center p-3 mb-4">
 
                   <div>
 
@@ -890,14 +894,13 @@ export default function AdminBorrowingPage() {
 
                   </div>
 
-                  <i className="bi bi-clipboard-check fs-2 text-secondary"></i>
+                  <i className="bi bi-clipboard-check fs-4 text-secondary"></i>
 
                 </div>
 
-
                 {/* USER */}
 
-                <h6 className="fw-bold mb-3">
+                <h6 className="br-section-title">
                   <i className="bi bi-person me-2"></i>
                   ข้อมูลผู้ยืม
                 </h6>
@@ -905,62 +908,48 @@ export default function AdminBorrowingPage() {
                 <div className="row g-3 mb-4">
 
                   <InfoBox
-                    label="ชื่อผู้ยืม"
-                    value={selectedItem.user}
+                    label="ชื่อผู้ใช้"
+                    value={selectedItem.borrower}
                   />
 
                   <InfoBox
-                    label="รหัสนักศึกษา / บุคลากร"
-                    value={selectedItem.studentId}
-                  />
-
-                  <InfoBox
-                    label="สังกัด / สาขา"
-                    value={selectedItem.department}
-                  />
-
-                  <InfoBox
-                    label="เบอร์โทรศัพท์"
-                    value={selectedItem.phone}
+                    label="อีเมล"
+                    value={selectedItem.email || "-"}
                   />
 
                 </div>
 
-
                 {/* EQUIPMENT */}
 
-                <h6 className="fw-bold mb-3">
+                <h6 className="br-section-title">
                   <i className="bi bi-box-seam me-2"></i>
                   ข้อมูลครุภัณฑ์
                 </h6>
 
-                <div className="bg-light rounded-4 p-3 mb-4">
+                <div className="br-soft p-3 mb-4">
 
                   <div className="d-flex align-items-center gap-3">
 
-                    <div className="borrow-modal-equipment-icon">
-
-                      <i className="bi bi-box-seam fs-4"></i>
-
+                    <div className="br-icon lg tone-purple">
+                      <i className="bi bi-box-seam"></i>
                     </div>
 
                     <div>
 
                       <div className="fw-bold">
-                        {selectedItem.equipment}
+                        {selectedItem.equipmentName}
                       </div>
 
                       <small className="text-secondary">
                         รหัสครุภัณฑ์:{" "}
                         {selectedItem.equipmentCode}
+                        {" · "}จำนวน {selectedItem.quantity} ชิ้น
                       </small>
 
-                      <div>
-
-                        <span className="badge bg-white text-dark border mt-1">
+                      <div className="mt-1">
+                        <Pill tone="neutral">
                           {selectedItem.category}
-                        </span>
-
+                        </Pill>
                       </div>
 
                     </div>
@@ -969,10 +958,9 @@ export default function AdminBorrowingPage() {
 
                 </div>
 
-
                 {/* BORROW INFO */}
 
-                <h6 className="fw-bold mb-3">
+                <h6 className="br-section-title">
                   <i className="bi bi-calendar3 me-2"></i>
                   ข้อมูลการยืม
                 </h6>
@@ -981,32 +969,31 @@ export default function AdminBorrowingPage() {
 
                   <InfoBox
                     label="วันที่ยืม"
-                    value={selectedItem.borrowDate}
+                    value={formatDate(selectedItem.borrowDate)}
                   />
 
                   <InfoBox
                     label="กำหนดคืน"
-                    value={selectedItem.dueDate}
+                    value={formatDate(selectedItem.dueDate)}
                   />
 
                   <InfoBox
                     label="วันที่คืน"
-                    value={selectedItem.returnDate || "-"}
+                    value={formatDate(selectedItem.returnDate)}
                   />
 
                   <InfoBox
                     label="วัตถุประสงค์"
-                    value={selectedItem.purpose}
+                    value={selectedItem.purpose || "-"}
                   />
 
                 </div>
-
 
                 {/* NOTE */}
 
                 {selectedItem.note && (
 
-                  <div className="alert alert-warning border-0 rounded-4">
+                  <div className="alert alert-warning br-note mb-0">
 
                     <i className="bi bi-info-circle me-2"></i>
 
@@ -1016,31 +1003,53 @@ export default function AdminBorrowingPage() {
 
                 )}
 
-              </div>
+                {/* PHOTOS */}
 
+                <BorrowingPhotos
+                  borrowingId={selectedItem.id}
+                  uploadKinds={["borrow", "return"]}
+                  allowDelete
+                />
+
+              </div>
 
               {/* FOOTER */}
 
-              <div className="modal-footer border-0 px-4 pb-4">
+              <div className="modal-footer px-4 py-3">
 
                 <button
                   type="button"
-                  className="btn btn-light rounded-pill px-4"
+                  className="btn btn-outline-secondary px-4"
                   onClick={closeDetails}
                 >
                   ปิด
                 </button>
 
-
-                {selectedItem.status === "รออนุมัติ" && (
+                {canCancel(selectedItem.status) && (
 
                   <button
                     type="button"
-                    className="btn btn-success rounded-pill px-4"
-                    onClick={() => {
-                      closeDetails();
-                      openApprove(selectedItem);
-                    }}
+                    className="btn btn-outline-danger px-4"
+                    disabled={busy}
+                    onClick={() =>
+                      runAction(selectedItem, "reject")
+                    }
+                  >
+                    <i className="bi bi-x-circle me-2"></i>
+                    ยกเลิกรายการ
+                  </button>
+
+                )}
+
+                {canApprove(selectedItem.status) && (
+
+                  <button
+                    type="button"
+                    className="btn btn-success px-4"
+                    disabled={busy}
+                    onClick={() =>
+                      runAction(selectedItem, "approve")
+                    }
                   >
                     <i className="bi bi-check-circle me-2"></i>
                     อนุมัติการยืม
@@ -1048,16 +1057,15 @@ export default function AdminBorrowingPage() {
 
                 )}
 
-
-                {selectedItem.status === "กำลังยืม" && (
+                {canReturn(selectedItem.status) && (
 
                   <button
                     type="button"
-                    className="btn btn-success rounded-pill px-4"
-                    onClick={() => {
-                      closeDetails();
-                      markReturned(selectedItem);
-                    }}
+                    className="btn btn-success px-4"
+                    disabled={busy}
+                    onClick={() =>
+                      runAction(selectedItem, "return")
+                    }
                   >
                     <i className="bi bi-box-arrow-in-down-left me-2"></i>
                     รับคืนครุภัณฑ์
@@ -1075,142 +1083,234 @@ export default function AdminBorrowingPage() {
 
       )}
 
-
       {/* =====================================================
-          APPROVE MODAL
+          RETURN CONFIRM MODAL (แนบรูปตอนคืน)
       ===================================================== */}
 
-      {showApproveModal && approveTarget && (
-
+      {returnTarget && (
         <div
-          className="modal fade show d-block admin-modal-backdrop"
+          className="modal fade show d-block br-modal-backdrop"
           tabIndex={-1}
+          style={{ zIndex: 1058 }}
+          onClick={() => {
+            if (!busy) closeReturnModal();
+          }}
         >
-
-          <div className="modal-dialog modal-dialog-centered">
-
-            <div className="modal-content border-0 rounded-4 shadow-lg">
-
-              <div className="modal-body p-4 text-center">
-
-                <div className="approve-icon">
-
-                  <i className="bi bi-check-lg fs-2"></i>
-
-                </div>
-
-                <h5 className="fw-bold">
-                  ยืนยันการอนุมัติ
+          <div
+            className="modal-dialog modal-dialog-centered modal-dialog-scrollable"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-content br-modal">
+              <div className="modal-header px-4 py-3">
+                <h5 className="modal-title fw-bold fs-6">
+                  {ACTION_CONFIRM.return.title}
                 </h5>
 
-                <p className="text-secondary mb-1">
-                  ต้องการอนุมัติรายการ
-                </p>
-
-                <strong>
-                  {approveTarget.id}
-                </strong>
-
-                <p className="text-secondary mt-2">
-                  {approveTarget.user}
-                  <br />
-                  {approveTarget.equipment}
-                </p>
-
-                <div className="d-flex gap-2 justify-content-center mt-4">
-
-                  <button
-                    type="button"
-                    className="btn btn-light rounded-pill px-4"
-                    onClick={() => {
-                      setShowApproveModal(false);
-                      setApproveTarget(null);
-                    }}
-                  >
-                    ยกเลิก
-                  </button>
-
-                  <button
-                    type="button"
-                    className="btn btn-success rounded-pill px-4"
-                    onClick={approveBorrow}
-                  >
-                    <i className="bi bi-check-circle me-2"></i>
-                    ยืนยันอนุมัติ
-                  </button>
-
-                </div>
-
+                <button
+                  type="button"
+                  className="btn-close"
+                  disabled={busy}
+                  onClick={closeReturnModal}
+                />
               </div>
 
+              <div className="modal-body p-4">
+                <div className="br-soft p-3 mb-3">
+                  <div className="fw-bold">
+                    {returnTarget.borrowId}
+                  </div>
+                  <small className="text-secondary d-block">
+                    {returnTarget.borrower}
+                  </small>
+                  <small className="text-secondary d-block">
+                    {returnTarget.equipmentName} ·{" "}
+                    {returnTarget.equipmentCode}
+                  </small>
+                </div>
+
+                <PhotoPicker
+                  value={returnPhotos}
+                  onChange={setReturnPhotos}
+                  disabled={busy}
+                  progress={uploadProgress}
+                />
+              </div>
+
+              <div className="modal-footer px-4 py-3">
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary px-4"
+                  disabled={busy}
+                  onClick={closeReturnModal}
+                >
+                  ปิด
+                </button>
+
+                <button
+                  type="button"
+                  className="btn btn-success px-4"
+                  disabled={busy}
+                  onClick={() =>
+                    executeAction(
+                      returnTarget,
+                      "return",
+                      returnPhotos
+                    )
+                  }
+                >
+                  {busy ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-2" />
+                      {uploadProgress
+                        ? "กำลังอัปโหลดรูป..."
+                        : "กำลังบันทึก..."}
+                    </>
+                  ) : (
+                    <>
+                      <i className="bi bi-box-arrow-in-down-left me-2"></i>
+                      {ACTION_CONFIRM.return.confirmText}
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
-
           </div>
-
         </div>
-
       )}
+
+      <style jsx>{`
+        .br-search {
+          flex: 1 1 260px;
+          max-width: 480px;
+        }
+
+        .br-table {
+          min-width: 860px;
+        }
+
+        .br-table > tbody > tr > td {
+          background: transparent;
+        }
+
+        .br-icon {
+          width: 32px;
+          height: 32px;
+          flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 8px;
+          font-size: 14px;
+        }
+
+        .br-icon.lg {
+          width: 40px;
+          height: 40px;
+          font-size: 18px;
+        }
+
+        .br-action {
+          width: 32px;
+          height: 32px;
+          padding: 0;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid #e4e4e4;
+          border-radius: 8px;
+          background: #ffffff;
+          color: #404040;
+        }
+
+        .br-action:hover {
+          background: #f3efff;
+          border-color: #d9ccff;
+          color: #6f42c1;
+        }
+
+        .br-menu {
+          border: 1px solid #e4e4e4;
+          border-radius: 8px;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+          font-size: 14px;
+        }
+
+        .br-footer {
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: space-between;
+          gap: 8px;
+          padding: 12px 20px;
+          border-top: 1px solid #e4e4e4;
+        }
+
+        .br-modal-backdrop {
+          background: rgba(15, 23, 42, 0.45);
+        }
+
+        .br-modal {
+          border: 1px solid #e4e4e4;
+          border-radius: 12px;
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+        }
+
+        .br-modal .modal-header,
+        .br-modal .modal-footer {
+          border-color: #e4e4e4;
+        }
+
+        .br-soft {
+          border: 1px solid #e4e4e4;
+          border-radius: 8px;
+          background: #fafafa;
+        }
+
+        .br-section-title {
+          margin-bottom: 12px;
+          font-size: 14px;
+          font-weight: 600;
+          color: #171717;
+        }
+
+        .br-note {
+          border: 1px solid #fde68a;
+          border-radius: 8px;
+          background: #fffbeb;
+          color: #92400e;
+          font-size: 14px;
+        }
+
+        .br-alert {
+          border: 1px solid #fecdd3;
+          border-radius: 12px;
+          background: #fff1f2;
+          color: #9f1239;
+          font-size: 14px;
+        }
+
+        .br-spin {
+          display: inline-block;
+          animation: br-spin 0.8s linear infinite;
+        }
+
+        @keyframes br-spin {
+          to {
+            transform: rotate(360deg);
+          }
+        }
+      `}</style>
 
     </main>
   );
 }
 
-
-/* =========================================================
-   STAT CARD
-========================================================= */
-
-function StatCard({
-  title,
-  value,
-  icon,
-  color,
-}: {
-  title: string;
-  value: number;
-  icon: string;
-  color: string;
-}) {
-  return (
-    <div className="col-6 col-xl">
-
-      <div className="card border-0 shadow-sm rounded-4 h-100">
-
-        <div className="card-body p-3 p-xl-4">
-
-          <div className="d-flex align-items-center justify-content-between">
-
-            <div>
-
-              <small className="text-secondary d-block mb-2">
-                {title}
-              </small>
-
-              <strong className="fs-3">
-                {value}
-              </strong>
-
-            </div>
-
-            <div
-              className="borrow-stat-icon"
-              style={{
-                "--stat-color": color,
-              } as React.CSSProperties}
-            >
-
-              <i className={`bi ${icon} fs-5`}></i>
-
-            </div>
-
-          </div>
-
-        </div>
-
-      </div>
-
-    </div>
-  );
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 
@@ -1226,37 +1326,32 @@ function StatusBadge({
   const config: Record<
     BorrowStatus,
     {
-      className: string;
+      tone: Tone;
       icon: string;
     }
   > = {
     "รออนุมัติ": {
-      className:
-        "bg-warning-subtle text-warning-emphasis",
+      tone: "amber",
       icon: "bi-hourglass-split",
     },
 
     "กำลังยืม": {
-      className:
-        "bg-primary-subtle text-primary",
+      tone: "blue",
       icon: "bi-clock",
     },
 
     "คืนแล้ว": {
-      className:
-        "bg-success-subtle text-success",
+      tone: "emerald",
       icon: "bi-check-circle",
     },
 
     "เกินกำหนด": {
-      className:
-        "bg-danger-subtle text-danger",
+      tone: "rose",
       icon: "bi-exclamation-circle",
     },
 
     ยกเลิก: {
-      className:
-        "bg-secondary-subtle text-secondary",
+      tone: "neutral",
       icon: "bi-x-circle",
     },
   };
@@ -1264,15 +1359,12 @@ function StatusBadge({
   const current = config[status];
 
   return (
-    <span
-      className={`badge rounded-pill px-3 py-2 ${current.className}`}
-    >
-      <i className={`bi ${current.icon} me-1`}></i>
+    <Pill tone={current.tone}>
+      <i className={`bi ${current.icon}`}></i>
       {status}
-    </span>
+    </Pill>
   );
 }
-
 
 /* =========================================================
    INFO BOX
@@ -1288,7 +1380,7 @@ function InfoBox({
   return (
     <div className="col-md-6">
 
-      <div className="border rounded-3 p-3 h-100">
+      <div className="h-100 p-3" style={{ border: "1px solid #e4e4e4", borderRadius: 8 }}>
 
         <small className="text-secondary d-block mb-1">
           {label}

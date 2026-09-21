@@ -1,9 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import Swal from "sweetalert2";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap-icons/font/bootstrap-icons.css";
 import AdminNavbar from "@/app/components/AdminNavbar";
+import {
+  PageHeader,
+  Panel,
+  Pill,
+  StatCard,
+  Toolbar,
+  type Tone,
+} from "@/app/components/ui";
+import BorrowingPhotos, {
+  PhotoPicker,
+  photoFailureText,
+  releasePhotos,
+  uploadPhotos,
+  type PickedPhoto,
+  type UploadProgress,
+} from "@/app/components/BorrowingPhotos";
 
 /* =====================================================
    TYPES
@@ -12,6 +29,7 @@ import AdminNavbar from "@/app/components/AdminNavbar";
 type BorrowStatus =
   | "คืนแล้ว"
   | "กำลังยืม"
+  | "เกินกำหนด"
   | "รออนุมัติ"
   | "ยกเลิก";
 
@@ -22,149 +40,195 @@ type BorrowHistory = {
   equipmentName: string;
   category: string;
   borrower: string;
-  department: string;
+  email: string;
   borrowDate: string;
-  returnDate: string;
-  actualReturnDate?: string;
+  dueDate: string;
+  returnDate: string | null;
+  quantity: number;
   purpose: string;
+  note: string;
   status: BorrowStatus;
-  icon: string;
 };
 
+const canReturn = (status: BorrowStatus) =>
+  status === "กำลังยืม" || status === "เกินกำหนด";
+
 /* =====================================================
-   MOCK DATA
+   DATA
 ===================================================== */
 
-const historyData: BorrowHistory[] = [
-  {
-    id: 1,
-    borrowId: "BR-2026-001",
-    equipmentCode: "SOC-LAP-001",
-    equipmentName: "Notebook Computer",
-    category: "คอมพิวเตอร์",
-    borrower: "สมชาย ใจดี",
-    department: "ภาควิชาสังคมศาสตร์",
-    borrowDate: "2026-09-01",
-    returnDate: "2026-09-05",
-    actualReturnDate: "2026-09-05",
-    purpose: "ใช้สำหรับการเรียนการสอน",
-    status: "คืนแล้ว",
-    icon: "bi-laptop",
-  },
-  {
-    id: 2,
-    borrowId: "BR-2026-002",
-    equipmentCode: "SOC-CAM-001",
-    equipmentName: "Digital Camera",
-    category: "อุปกรณ์ถ่ายภาพ",
-    borrower: "กิตติพงษ์ แสงทอง",
-    department: "งานประชาสัมพันธ์",
-    borrowDate: "2026-09-03",
-    returnDate: "2026-09-10",
-    purpose: "ถ่ายภาพกิจกรรมของคณะ",
-    status: "กำลังยืม",
-    icon: "bi-camera",
-  },
-  {
-    id: 3,
-    borrowId: "BR-2026-003",
-    equipmentCode: "SOC-PRO-001",
-    equipmentName: "Projector",
-    category: "อุปกรณ์นำเสนอ",
-    borrower: "นภัสสร วัฒนะ",
-    department: "สำนักงานคณะ",
-    borrowDate: "2026-09-04",
-    returnDate: "2026-09-06",
-    purpose: "ใช้ในการประชุม",
-    status: "คืนแล้ว",
-    icon: "bi-projector",
-    actualReturnDate: "2026-09-06",
-  },
-  {
-    id: 4,
-    borrowId: "BR-2026-004",
-    equipmentCode: "SOC-MIC-001",
-    equipmentName: "Wireless Microphone",
-    category: "อุปกรณ์เสียง",
-    borrower: "ธนกร บุญมี",
-    department: "งานกิจการนักศึกษา",
-    borrowDate: "2026-09-05",
-    returnDate: "2026-09-12",
-    purpose: "ใช้สำหรับจัดกิจกรรม",
-    status: "รออนุมัติ",
-    icon: "bi-mic",
-  },
-  {
-    id: 5,
-    borrowId: "BR-2026-005",
-    equipmentCode: "SOC-TAB-001",
-    equipmentName: "Tablet",
-    category: "อุปกรณ์อิเล็กทรอนิกส์",
-    borrower: "พิมพ์ชนก ศรีสุข",
-    department: "ภาควิชาสังคมศาสตร์",
-    borrowDate: "2026-08-20",
-    returnDate: "2026-08-25",
-    actualReturnDate: "2026-08-25",
-    purpose: "ใช้ในการเก็บข้อมูลภาคสนาม",
-    status: "คืนแล้ว",
-    icon: "bi-tablet",
-  },
-  {
-    id: 6,
-    borrowId: "BR-2026-006",
-    equipmentCode: "SOC-LAP-002",
-    equipmentName: "Notebook Computer",
-    category: "คอมพิวเตอร์",
-    borrower: "อาทิตย์ คำแก้ว",
-    department: "ภาควิชามานุษยวิทยา",
-    borrowDate: "2026-08-15",
-    returnDate: "2026-08-20",
-    purpose: "ใช้ทำงานวิจัย",
-    status: "ยกเลิก",
-    icon: "bi-laptop",
-  },
-  {
-    id: 7,
-    borrowId: "BR-2026-007",
-    equipmentCode: "SOC-CAM-002",
-    equipmentName: "Digital Camera",
-    category: "อุปกรณ์ถ่ายภาพ",
-    borrower: "วรพล ทองดี",
-    department: "งานประชาสัมพันธ์",
-    borrowDate: "2026-08-10",
-    returnDate: "2026-08-15",
-    actualReturnDate: "2026-08-14",
-    purpose: "ถ่ายภาพกิจกรรม",
-    status: "คืนแล้ว",
-    icon: "bi-camera",
-  },
-  {
-    id: 8,
-    borrowId: "BR-2026-008",
-    equipmentCode: "SOC-PRO-002",
-    equipmentName: "Projector",
-    category: "อุปกรณ์นำเสนอ",
-    borrower: "ศุภชัย มณี",
-    department: "งานวิชาการ",
-    borrowDate: "2026-09-06",
-    returnDate: "2026-09-08",
-    purpose: "นำเสนอผลงานวิจัย",
-    status: "กำลังยืม",
-    icon: "bi-projector",
-  },
-];
+async function fetchHistory(): Promise<BorrowHistory[]> {
+  const res = await fetch("/api/admin/borrowings", {
+    cache: "no-store",
+  });
+
+  const result = await res.json().catch(() => null);
+
+  if (!res.ok || !result?.success) {
+    throw new Error(
+      result?.message || "ไม่สามารถดึงข้อมูลรายการยืมได้"
+    );
+  }
+
+  return result.data as BorrowHistory[];
+}
+
+const toTime = (value: string | null | undefined) => {
+  const time = value ? new Date(value).getTime() : NaN;
+  return Number.isNaN(time) ? 0 : time;
+};
+
+// ไอคอนตามประเภทครุภัณฑ์ (API ไม่มีฟิลด์ไอคอน)
+function categoryIcon(category: string) {
+  const c = category.toLowerCase();
+
+  if (/คอม|notebook|laptop|โน้ตบุ๊ก/.test(c)) return "bi-laptop";
+  if (/กล้อง|ภาพ|camera/.test(c)) return "bi-camera";
+  if (/โปรเจ|นำเสนอ|projector/.test(c)) return "bi-projector";
+  if (/เสียง|ไมค์|mic|audio/.test(c)) return "bi-mic";
+  if (/แท็บ|tablet|อิเล็ก/.test(c)) return "bi-tablet";
+
+  return "bi-box-seam";
+}
+
 
 /* =====================================================
    PAGE
 ===================================================== */
 
 export default function HistoryPage() {
+  const [historyData, setHistoryData] =
+    useState<BorrowHistory[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("ทั้งหมด");
   const [sort, setSort] = useState("ล่าสุด");
 
   const [selectedHistory, setSelectedHistory] =
     useState<BorrowHistory | null>(null);
+
+  // ยืนยันรับคืน (แนบรูปสภาพตอนคืนได้)
+  const [returnTarget, setReturnTarget] =
+    useState<BorrowHistory | null>(null);
+  const [returnPhotos, setReturnPhotos] =
+    useState<PickedPhoto[]>([]);
+  const [uploadProgress, setUploadProgress] =
+    useState<UploadProgress | null>(null);
+
+  const closeReturnModal = () => {
+    releasePhotos(returnPhotos);
+    setReturnPhotos([]);
+    setReturnTarget(null);
+  };
+
+  /* =====================================================
+     LOAD
+  ===================================================== */
+
+  const loadHistory = useCallback(async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      setHistoryData(await fetchHistory());
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "เกิดข้อผิดพลาด"
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void loadHistory();
+    }, 0);
+
+    return () => clearTimeout(timer);
+  }, [loadHistory]);
+
+  /* =====================================================
+     CONFIRM RETURN
+  ===================================================== */
+
+  const confirmReturn = async (item: BorrowHistory) => {
+    if (submitting || !canReturn(item.status)) return;
+
+    setReturnPhotos([]);
+    setReturnTarget(item);
+  };
+
+  const executeReturn = async (
+    item: BorrowHistory,
+    photos: PickedPhoto[]
+  ) => {
+    if (submitting) return;
+
+    setSubmitting(true);
+
+    try {
+      const res = await fetch(
+        `/api/admin/borrowings/${item.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "return" }),
+        }
+      );
+
+      const result = await res.json().catch(() => null);
+
+      if (!res.ok || !result?.success) {
+        throw new Error(
+          result?.message || "ไม่สามารถบันทึกการคืนได้"
+        );
+      }
+
+      const photoSummary = await uploadPhotos(
+        item.id,
+        "return",
+        photos,
+        setUploadProgress
+      );
+      const photoFailure = photoFailureText(photoSummary);
+
+      setUploadProgress(null);
+      closeReturnModal();
+      setSelectedHistory(null);
+
+      await loadHistory();
+
+      await Swal.fire({
+        title: "สำเร็จ",
+        text: `${result.message || "บันทึกการคืนสำเร็จ"}${
+          photoFailure ? ` ${photoFailure}` : ""
+        }`,
+        icon: photoFailure ? "warning" : "success",
+        confirmButtonText: "ตกลง",
+        confirmButtonColor: "#6f42c1",
+      });
+    } catch (err) {
+      Swal.fire({
+        title: "ไม่สำเร็จ",
+        text:
+          err instanceof Error
+            ? err.message
+            : "เกิดข้อผิดพลาด",
+        icon: "error",
+        confirmButtonText: "ตกลง",
+        confirmButtonColor: "#6f42c1",
+      });
+    } finally {
+      setSubmitting(false);
+      setUploadProgress(null);
+    }
+  };
 
   /* =====================================================
      FILTER + SORT
@@ -180,7 +244,7 @@ export default function HistoryPage() {
         item.equipmentCode.toLowerCase().includes(keyword) ||
         item.equipmentName.toLowerCase().includes(keyword) ||
         item.borrower.toLowerCase().includes(keyword) ||
-        item.department.toLowerCase().includes(keyword);
+        item.email.toLowerCase().includes(keyword);
 
       const statusMatch =
         status === "ทั้งหมด" || item.status === status;
@@ -189,24 +253,15 @@ export default function HistoryPage() {
     })
     .sort((a, b) => {
       if (sort === "ล่าสุด") {
-        return (
-          new Date(b.borrowDate).getTime() -
-          new Date(a.borrowDate).getTime()
-        );
+        return toTime(b.borrowDate) - toTime(a.borrowDate);
       }
 
       if (sort === "เก่าสุด") {
-        return (
-          new Date(a.borrowDate).getTime() -
-          new Date(b.borrowDate).getTime()
-        );
+        return toTime(a.borrowDate) - toTime(b.borrowDate);
       }
 
       if (sort === "วันคืนใกล้สุด") {
-        return (
-          new Date(a.returnDate).getTime() -
-          new Date(b.returnDate).getTime()
-        );
+        return toTime(a.dueDate) - toTime(b.dueDate);
       }
 
       return a.borrowId.localeCompare(b.borrowId);
@@ -226,6 +281,10 @@ export default function HistoryPage() {
     (item) => item.status === "กำลังยืม"
   ).length;
 
+  const overdueCount = historyData.filter(
+    (item) => item.status === "เกินกำหนด"
+  ).length;
+
   const pendingCount = historyData.filter(
     (item) => item.status === "รออนุมัติ"
   ).length;
@@ -240,317 +299,284 @@ export default function HistoryPage() {
     setSort("ล่าสุด");
   };
 
-  /* =====================================================
-     RETURN
-  ===================================================== */
 
   return (
-    <main className="bg-light min-vh-100">
+    <main className="min-vh-100">
 
-      {/* =================================================
+      {/* =====================================================
           ADMIN NAVBAR
-      ================================================= */}
+      ===================================================== */}
 
       <AdminNavbar />
 
-      {/* =================================================
-          CONTENT
+      {/* =====================================================
+          MAIN CONTENT
+      ===================================================== */}
 
-          ไม่ใส่ Navbar ซ้ำ
-          ไม่ใช้ container ใหญ่ที่ทำให้เนื้อหาถูกบีบ
-      ================================================= */}
+      <section className="admin-page-content">
 
-      <section
-        className="admin-page-content"
-        style={{
-          paddingTop: "98px",
-        }}
-      >
+        <div className="ui-page p-0">
 
-        {/* =================================================
-            HERO
-        ================================================= */}
+          {/* =====================================================
+              PAGE HEADER
+          ===================================================== */}
 
-        <section
-          className="rounded-4 overflow-hidden mb-4"
-          style={{
-            background:
-              "linear-gradient(135deg, #f5f0ff 0%, #ffffff 60%, #eee8ff 100%)",
-          }}
-        >
+          <PageHeader
+            eyebrow="การยืม–คืน"
+            title="ประวัติการยืม–คืน"
+            actions={
+              <button
+                type="button"
+                className="btn btn-outline-secondary"
+                onClick={() => void loadHistory()}
+                disabled={loading}
+              >
+                {loading ? (
+                  <span className="spinner-border spinner-border-sm me-2"></span>
+                ) : (
+                  <i className="bi bi-arrow-clockwise me-2"></i>
+                )}
+                รีเฟรช
+              </button>
+            }
+          />
 
-          <div className="container-fluid px-4 py-4">
+          {/* ERROR */}
 
-            <div className="row align-items-center g-4">
+          {error && (
+            <div className="alert alert-danger history-alert mb-0">
 
-              {/* TITLE */}
+              <div className="d-flex align-items-start gap-3">
 
-              <div className="col-xl-7 col-lg-6">
+                <i className="bi bi-exclamation-triangle fs-5"></i>
 
-                <span className="badge rounded-pill bg-white border text-primary px-3 py-2 mb-3">
+                <div>
 
-                </span>
+                  <div className="fw-semibold">
+                    ไม่สามารถโหลดข้อมูลรายการยืม–คืนได้
+                  </div>
 
-                <h1 className="fw-bold mb-2">
-                  ประวัติการยืม–คืน
-                </h1>
-
-              </div>
-
-              {/* SUMMARY */}
-
-              <div className="col-xl-5 col-lg-6">
-
-                <div className="row g-3">
-
-                  <SummaryCard
-                    icon="bi-list-ul"
-                    number={totalCount}
-                    title="รายการทั้งหมด"
-                    color="#6f42c1"
-                  />
-
-                  <SummaryCard
-                    icon="bi-check-circle-fill"
-                    number={returnedCount}
-                    title="คืนแล้ว"
-                    color="#198754"
-                  />
-
-                  <SummaryCard
-                    icon="bi-box-arrow-up-right"
-                    number={borrowingCount}
-                    title="กำลังยืม"
-                    color="#fd7e14"
-                  />
-
-                  <SummaryCard
-                    icon="bi-hourglass-split"
-                    number={pendingCount}
-                    title="รออนุมัติ"
-                    color="#ffc107"
-                  />
-
-                </div>
-
-              </div>
-
-            </div>
-
-          </div>
-
-        </section>
-
-
-        {/* =================================================
-            SEARCH / FILTER
-        ================================================= */}
-
-        <section className="mb-4">
-
-          <div className="card border-0 shadow-sm rounded-4">
-
-            <div className="card-body p-4">
-
-              <div className="row g-3 align-items-end">
-
-                {/* SEARCH */}
-
-                <div className="col-xl-6 col-lg-5">
-
-                  <label className="form-label fw-semibold">
-
-                    <i className="bi bi-search me-2"></i>
-
-                    ค้นหาประวัติ
-
-                  </label>
-
-                  <div className="input-group">
-
-                    <span className="input-group-text bg-white">
-
-                      <i className="bi bi-search"></i>
-
-                    </span>
-
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="ค้นหารหัสการยืม, ครุภัณฑ์, ผู้ยืม..."
-                      value={search}
-                      onChange={(e) =>
-                        setSearch(e.target.value)
-                      }
-                    />
-
-                    {search && (
-                      <button
-                        className="btn btn-outline-secondary"
-                        type="button"
-                        onClick={() => setSearch("")}
-                      >
-                        <i className="bi bi-x-lg"></i>
-                      </button>
-                    )}
-
+                  <div className="small mt-1">
+                    {error}
                   </div>
 
                 </div>
 
-
-                {/* STATUS */}
-
-                <div className="col-xl-3 col-lg-3 col-md-6">
-
-                  <label className="form-label fw-semibold">
-
-                    <i className="bi bi-circle me-2"></i>
-
-                    สถานะ
-
-                  </label>
-
-                  <select
-                    className="form-select"
-                    value={status}
-                    onChange={(e) =>
-                      setStatus(e.target.value)
-                    }
-                  >
-
-                    <option value="ทั้งหมด">
-                      ทั้งหมด
-                    </option>
-
-                    <option value="คืนแล้ว">
-                      คืนแล้ว
-                    </option>
-
-                    <option value="กำลังยืม">
-                      กำลังยืม
-                    </option>
-
-                    <option value="รออนุมัติ">
-                      รออนุมัติ
-                    </option>
-
-                    <option value="ยกเลิก">
-                      ยกเลิก
-                    </option>
-
-                  </select>
-
-                </div>
-
-
-                {/* SORT */}
-
-                <div className="col-xl-3 col-lg-4 col-md-6">
-
-                  <label className="form-label fw-semibold">
-
-                    <i className="bi bi-sort-down me-2"></i>
-
-                    เรียงลำดับ
-
-                  </label>
-
-                  <select
-                    className="form-select"
-                    value={sort}
-                    onChange={(e) =>
-                      setSort(e.target.value)
-                    }
-                  >
-
-                    <option value="ล่าสุด">
-                      วันที่ยืมล่าสุด
-                    </option>
-
-                    <option value="เก่าสุด">
-                      วันที่ยืมเก่าสุด
-                    </option>
-
-                    <option value="วันคืนใกล้สุด">
-                      วันคืนใกล้สุด
-                    </option>
-
-                    <option value="รหัส">
-                      รหัสการยืม
-                    </option>
-
-                  </select>
-
-                </div>
-
               </div>
 
             </div>
+          )}
+
+
+          {/* =====================================================
+              SUMMARY CARDS
+          ===================================================== */}
+
+          <div className="row g-3">
+
+            <div className="col-6 col-xl">
+              <StatCard
+                icon="bi-list-ul"
+                label="รายการทั้งหมด"
+                value={totalCount}
+                tone="purple"
+              />
+            </div>
+
+            <div className="col-6 col-xl">
+              <StatCard
+                icon="bi-check-circle"
+                label="คืนแล้ว"
+                value={returnedCount}
+                tone="emerald"
+              />
+            </div>
+
+            <div className="col-6 col-xl">
+              <StatCard
+                icon="bi-box-arrow-up-right"
+                label="กำลังยืม"
+                value={borrowingCount}
+                tone="amber"
+              />
+            </div>
+
+            <div className="col-6 col-xl">
+              <StatCard
+                icon="bi-hourglass-split"
+                label="รออนุมัติ"
+                value={pendingCount}
+                tone="blue"
+              />
+            </div>
+
+            <div className="col-12 col-xl">
+              <StatCard
+                icon="bi-exclamation-circle"
+                label="เกินกำหนด"
+                value={overdueCount}
+                tone="rose"
+              />
+            </div>
 
           </div>
 
-        </section>
 
+          {/* =====================================================
+              SEARCH & FILTER
+          ===================================================== */}
 
-        {/* =================================================
-            RESULT HEADER
-        ================================================= */}
+          <Toolbar>
 
-        <section className="mb-5">
+            {/* SEARCH */}
 
-          <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
+            <div
+              className="input-group input-group-sm flex-grow-1"
+              style={{ minWidth: "240px", flexBasis: "320px" }}
+            >
 
-            <div>
-
-              <h4 className="fw-bold mb-1">
-                รายการประวัติ
-              </h4>
-
-              <span className="text-secondary">
-
-                พบ{" "}
-
-                <strong className="text-dark">
-                  {filteredHistory.length}
-                </strong>{" "}
-
-                รายการ
-
+              <span className="input-group-text bg-white">
+                <i className="bi bi-search"></i>
               </span>
+
+              <input
+                type="text"
+                className="form-control"
+                aria-label="ค้นหาประวัติ"
+                placeholder="ค้นหารหัสการยืม, ครุภัณฑ์, ผู้ยืม..."
+                value={search}
+                onChange={(e) =>
+                  setSearch(e.target.value)
+                }
+              />
+
+              {search && (
+
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary"
+                  onClick={() => setSearch("")}
+                >
+
+                  <i className="bi bi-x-lg"></i>
+
+                </button>
+
+              )}
 
             </div>
 
-            <button
-              className="btn btn-outline-danger rounded-pill px-3"
-              type="button"
-              onClick={resetFilter}
+
+            {/* STATUS */}
+
+            <select
+              className="form-select"
+              style={{ width: "auto", minWidth: "160px" }}
+              aria-label="สถานะ"
+              value={status}
+              onChange={(e) =>
+                setStatus(e.target.value)
+              }
             >
 
-              <i className="bi bi-arrow-counterclockwise me-2"></i>
+              <option value="ทั้งหมด">
+                สถานะ: ทั้งหมด
+              </option>
 
-              ล้างตัวกรอง
+              <option value="คืนแล้ว">
+                คืนแล้ว
+              </option>
 
-            </button>
+              <option value="กำลังยืม">
+                กำลังยืม
+              </option>
 
-          </div>
+              <option value="เกินกำหนด">
+                เกินกำหนด
+              </option>
+
+              <option value="รออนุมัติ">
+                รออนุมัติ
+              </option>
+
+              <option value="ยกเลิก">
+                ยกเลิก
+              </option>
+
+            </select>
 
 
-          {/* =================================================
-              TABLE
-          ================================================= */}
+            {/* SORT */}
 
-          <div className="card border-0 shadow-sm rounded-4 overflow-hidden">
+            <select
+              className="form-select"
+              style={{ width: "auto", minWidth: "170px" }}
+              aria-label="เรียงลำดับ"
+              value={sort}
+              onChange={(e) =>
+                setSort(e.target.value)
+              }
+            >
+
+              <option value="ล่าสุด">
+                วันที่ยืมล่าสุด
+              </option>
+
+              <option value="เก่าสุด">
+                วันที่ยืมเก่าสุด
+              </option>
+
+              <option value="วันคืนใกล้สุด">
+                วันคืนใกล้สุด
+              </option>
+
+              <option value="รหัส">
+                รหัสการยืม
+              </option>
+
+            </select>
+
+
+          </Toolbar>
+
+
+          {/* =====================================================
+              RESULT TABLE
+          ===================================================== */}
+
+          <Panel
+            flush
+            title="รายการประวัติ"
+            description={
+              <>
+                พบ{" "}
+                <strong className="text-dark">
+                  {filteredHistory.length}
+                </strong>{" "}
+                รายการ
+              </>
+            }
+            action={
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-secondary text-nowrap"
+                onClick={resetFilter}
+              >
+                <i className="bi bi-arrow-counterclockwise me-1"></i>
+                ล้างตัวกรอง
+              </button>
+            }
+          >
 
             <div className="table-responsive">
 
-              <table className="table table-hover align-middle mb-0">
+              <table className="table ui-table align-middle mb-0">
 
-                <thead className="table-light">
+                <thead>
 
                   <tr>
 
-                    <th className="px-4 py-3">
+                    <th>
                       รายการ
                     </th>
 
@@ -570,7 +596,7 @@ export default function HistoryPage() {
                       สถานะ
                     </th>
 
-                    <th className="text-end px-4">
+                    <th className="text-end">
                       รายละเอียด
                     </th>
 
@@ -578,36 +604,23 @@ export default function HistoryPage() {
 
                 </thead>
 
+
                 <tbody>
 
                   {filteredHistory.map((item) => (
 
                     <tr key={item.id}>
 
-                      {/* ITEM */}
+                      {/* EQUIPMENT */}
 
-                      <td className="px-4">
+                      <td>
 
                         <div className="d-flex align-items-center gap-3">
 
-                          <div
-                            className="d-flex align-items-center justify-content-center rounded-3 flex-shrink-0"
-                            style={{
-                              width: "48px",
-                              height: "48px",
-                              background: "#eee8ff",
-                              color: "#6f42c1",
-                            }}
-                          >
-
-                            <i
-                              className={item.icon}
-                              style={{
-                                fontSize: "21px",
-                              }}
-                            ></i>
-
+                          <div className="ui-stat-icon tone-purple">
+                            <i className={`bi ${categoryIcon(item.category)}`}></i>
                           </div>
+
 
                           <div>
 
@@ -616,13 +629,7 @@ export default function HistoryPage() {
                             </div>
 
                             <small className="text-secondary">
-                              {item.equipmentCode}
-                            </small>
-
-                            <br />
-
-                            <small className="text-secondary">
-                              {item.borrowId}
+                              {item.equipmentCode} · {item.borrowId}
                             </small>
 
                           </div>
@@ -641,7 +648,7 @@ export default function HistoryPage() {
                         </div>
 
                         <small className="text-secondary">
-                          {item.department}
+                          {item.email}
                         </small>
 
                       </td>
@@ -649,31 +656,33 @@ export default function HistoryPage() {
 
                       {/* BORROW DATE */}
 
-                      <td>
-
-                        <div className="fw-semibold">
-                          {formatDate(item.borrowDate)}
-                        </div>
-
+                      <td className="text-nowrap">
+                        {formatDate(item.borrowDate)}
                       </td>
 
 
                       {/* RETURN DATE */}
 
-                      <td>
+                      <td className="text-nowrap">
 
-                        <div className="fw-semibold">
-                          {formatDate(item.returnDate)}
+                        <div
+                          className={
+                            item.status === "เกินกำหนด"
+                              ? "text-danger fw-semibold"
+                              : ""
+                          }
+                        >
+                          {formatDate(item.dueDate)}
                         </div>
 
-                        {item.actualReturnDate && (
+                        {item.returnDate && (
 
                           <small className="text-success">
 
                             คืนจริง{" "}
 
                             {formatDate(
-                              item.actualReturnDate
+                              item.returnDate
                             )}
 
                           </small>
@@ -696,21 +705,44 @@ export default function HistoryPage() {
 
                       {/* DETAIL */}
 
-                      <td className="text-end px-4">
+                      <td className="text-end">
 
-                        <button
-                          type="button"
-                          className="btn btn-outline-dark btn-sm rounded-pill px-3"
-                          onClick={() =>
-                            setSelectedHistory(item)
-                          }
-                        >
+                        <div className="d-inline-flex gap-2">
 
-                          <i className="bi bi-eye me-1"></i>
+                          {canReturn(item.status) && (
 
-                          ดูรายละเอียด
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-outline-success text-nowrap"
+                              disabled={submitting}
+                              onClick={() =>
+                                confirmReturn(item)
+                              }
+                            >
 
-                        </button>
+                              <i className="bi bi-box-arrow-in-down-left me-1"></i>
+
+                              บันทึกการคืน
+
+                            </button>
+
+                          )}
+
+                          <button
+                            type="button"
+                            className="btn btn-outline-secondary btn-sm text-nowrap"
+                            onClick={() =>
+                              setSelectedHistory(item)
+                            }
+                          >
+
+                            <i className="bi bi-eye me-1"></i>
+
+                            ดูรายละเอียด
+
+                          </button>
+
+                        </div>
 
                       </td>
 
@@ -725,43 +757,45 @@ export default function HistoryPage() {
             </div>
 
 
-            {/* =================================================
-                EMPTY
-            ================================================= */}
+            {/* EMPTY */}
 
-            {filteredHistory.length === 0 && (
+            {loading && historyData.length === 0 ? (
 
               <div className="text-center py-5">
 
-                <div
-                  className="mx-auto mb-3 d-flex align-items-center justify-content-center rounded-circle"
-                  style={{
-                    width: "90px",
-                    height: "90px",
-                    background: "#eee8ff",
-                    color: "#6f42c1",
-                  }}
-                >
+                <div className="spinner-border spinner-border-sm text-secondary"></div>
 
-                  <i className="bi bi-clock-history fs-1"></i>
+                <p className="text-secondary small mt-2 mb-0">
+                  กำลังโหลดข้อมูล...
+                </p>
 
+              </div>
+
+            ) : filteredHistory.length === 0 && (
+
+              <div className="text-center py-5">
+
+                <div className="ui-stat-icon tone-neutral mx-auto mb-3">
+                  <i className="bi bi-clock-history"></i>
                 </div>
 
-                <h5 className="fw-bold">
+                <p className="fw-semibold mb-1">
                   ไม่พบประวัติการยืม–คืน
-                </h5>
+                </p>
 
-                <p className="text-secondary mb-0">
-                  ลองเปลี่ยนคำค้นหาหรือเงื่อนไขตัวกรอง
+                <p className="text-secondary small mb-0">
+                  {historyData.length === 0
+                    ? "ยังไม่มีรายการยืมในระบบ"
+                    : "ลองเปลี่ยนคำค้นหาหรือเงื่อนไขตัวกรอง"}
                 </p>
 
               </div>
 
             )}
 
-          </div>
+          </Panel>
 
-        </section>
+        </div>
 
       </section>
 
@@ -792,72 +826,55 @@ export default function HistoryPage() {
             }
           >
 
-            <div className="modal-content border-0 rounded-4 overflow-hidden shadow-lg">
+            <div className="modal-content border-0 overflow-hidden" style={{ borderRadius: "12px" }}>
 
               {/* MODAL HEADER */}
 
-              <div
-                className="position-relative d-flex align-items-center justify-content-center"
-                style={{
-                  height: "180px",
-                  background:
-                    "linear-gradient(135deg,#f4f0fa,#eee8ff)",
-                  color: "#6f42c1",
-                }}
-              >
+              <div className="modal-header align-items-start gap-3 px-4 py-3" style={{ borderBottom: "1px solid var(--shell-border)" }}>
 
-                <i
-                  className={selectedHistory.icon}
-                  style={{
-                    fontSize: "75px",
-                  }}
-                ></i>
+                <div className="ui-stat-icon tone-purple">
+                  <i className={`bi ${categoryIcon(selectedHistory.category)}`}></i>
+                </div>
+
+                <div className="flex-grow-1" style={{ minWidth: 0 }}>
+
+                  <p className="ui-eyebrow mb-1">
+                    {selectedHistory.borrowId}
+                  </p>
+
+                  <h5 className="fw-bold mb-1">
+                    {selectedHistory.equipmentName}
+                  </h5>
+
+                  <div className="d-flex flex-wrap align-items-center gap-2">
+
+                    <small className="text-secondary">
+                      {selectedHistory.equipmentCode}
+                    </small>
+
+                    <HistoryStatusBadge
+                      status={selectedHistory.status}
+                    />
+
+                  </div>
+
+                </div>
 
                 <button
                   type="button"
-                  className="btn-close position-absolute top-0 end-0 m-3 bg-white rounded-circle p-2"
+                  className="btn-close"
                   aria-label="ปิด"
                   onClick={() =>
                     setSelectedHistory(null)
                   }
                 ></button>
 
-                <div className="position-absolute bottom-0 start-50 translate-middle-x mb-3">
-
-                  <HistoryStatusBadge
-                    status={selectedHistory.status}
-                  />
-
-                </div>
-
               </div>
 
 
               {/* MODAL BODY */}
 
-              <div className="modal-body p-4 p-lg-5">
-
-                <div className="text-center mb-4">
-
-                  <small
-                    className="fw-bold"
-                    style={{
-                      color: "#6f42c1",
-                    }}
-                  >
-                    {selectedHistory.borrowId}
-                  </small>
-
-                  <h3 className="fw-bold mt-2 mb-1">
-                    {selectedHistory.equipmentName}
-                  </h3>
-
-                  <p className="text-secondary mb-0">
-                    {selectedHistory.equipmentCode}
-                  </p>
-
-                </div>
-
+              <div className="modal-body p-4">
 
                 <div className="row g-3">
 
@@ -868,9 +885,9 @@ export default function HistoryPage() {
                   />
 
                   <DetailBox
-                    icon="bi-building"
-                    title="หน่วยงาน"
-                    value={selectedHistory.department}
+                    icon="bi-envelope"
+                    title="อีเมล"
+                    value={selectedHistory.email || "-"}
                   />
 
                   <DetailBox
@@ -885,7 +902,7 @@ export default function HistoryPage() {
                     icon="bi-calendar-event"
                     title="กำหนดคืน"
                     value={formatDate(
-                      selectedHistory.returnDate
+                      selectedHistory.dueDate
                     )}
                   />
 
@@ -896,91 +913,106 @@ export default function HistoryPage() {
                   />
 
                   <DetailBox
-                    icon="bi-circle"
-                    title="สถานะ"
-                    value={selectedHistory.status}
+                    icon="bi-123"
+                    title="จำนวน"
+                    value={`${selectedHistory.quantity} ชิ้น`}
                   />
 
-                </div>
+                  {/* PURPOSE */}
 
-
-                {/* PURPOSE */}
-
-                <div className="mt-4">
-
-                  <div className="bg-light rounded-4 p-4">
-
-                    <div className="d-flex gap-3">
-
-                      <div
-                        className="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
-                        style={{
-                          width: "45px",
-                          height: "45px",
-                          background: "#eee8ff",
-                          color: "#6f42c1",
-                        }}
-                      >
-
-                        <i className="bi bi-chat-left-text"></i>
-
-                      </div>
-
-                      <div>
-
-                        <small className="text-secondary">
-                          วัตถุประสงค์ในการยืม
-                        </small>
-
-                        <div className="fw-semibold mt-1">
-                          {selectedHistory.purpose}
-                        </div>
-
-                      </div>
-
-                    </div>
-
+                  <div className="col-12">
+                    <DetailContent
+                      icon="bi-chat-left-text"
+                      title="วัตถุประสงค์ในการยืม"
+                      value={selectedHistory.purpose || "-"}
+                    />
                   </div>
+
+                  {selectedHistory.note && (
+                    <div className="col-12">
+                      <DetailContent
+                        icon="bi-info-circle"
+                        title="หมายเหตุ"
+                        value={selectedHistory.note}
+                      />
+                    </div>
+                  )}
 
                 </div>
 
 
                 {/* ACTUAL RETURN */}
 
-                {selectedHistory.actualReturnDate && (
+                {selectedHistory.returnDate && (
 
-                  <div className="alert alert-success border-0 rounded-4 mt-3 mb-0">
+                  <div
+                    className="d-flex align-items-center gap-2 mt-3 px-3 py-2 small tone-emerald"
+                    style={{ borderRadius: "8px" }}
+                  >
 
-                    <i className="bi bi-check-circle-fill me-2"></i>
+                    <i className="bi bi-check-circle-fill"></i>
 
-                    ครุภัณฑ์ถูกคืนแล้วเมื่อ{" "}
+                    <span>
+                      ครุภัณฑ์ถูกคืนแล้วเมื่อ{" "}
 
-                    <strong>
-                      {formatDate(
-                        selectedHistory.actualReturnDate
-                      )}
-                    </strong>
+                      <strong>
+                        {formatDate(
+                          selectedHistory.returnDate
+                        )}
+                      </strong>
+                    </span>
 
                   </div>
 
                 )}
+
+                {/* PHOTOS */}
+
+                <BorrowingPhotos
+                  borrowingId={selectedHistory.id}
+                  uploadKinds={["borrow", "return"]}
+                  allowDelete
+                />
 
               </div>
 
 
               {/* MODAL FOOTER */}
 
-              <div className="modal-footer border-0 px-4 px-lg-5 pb-4">
+              <div className="modal-footer px-4 py-3" style={{ borderTop: "1px solid var(--shell-border)" }}>
 
                 <button
                   type="button"
-                  className="btn btn-light rounded-pill px-4"
+                  className="btn btn-sm btn-outline-secondary px-3"
                   onClick={() =>
                     setSelectedHistory(null)
                   }
                 >
                   ปิด
                 </button>
+
+                {canReturn(selectedHistory.status) && (
+
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-success px-3"
+                    disabled={submitting}
+                    onClick={() => {
+                      // ปิด modal ก่อน เพราะ z-index ของ modal (2000) สูงกว่า SweetAlert
+                      const target = selectedHistory;
+                      setSelectedHistory(null);
+                      void confirmReturn(target);
+                    }}
+                  >
+                    {submitting ? (
+                      <span className="spinner-border spinner-border-sm me-2"></span>
+                    ) : (
+                      <i className="bi bi-box-arrow-in-down-left me-2"></i>
+                    )}
+                    บันทึกการคืน
+                  </button>
+
+                )}
 
               </div>
 
@@ -994,30 +1026,135 @@ export default function HistoryPage() {
 
 
       {/* =====================================================
+          RETURN CONFIRM MODAL (แนบรูปตอนคืน)
+          z-index ต่ำกว่า SweetAlert (1060) เพื่อให้แจ้งผิดพลาดแสดงทับได้
+      ===================================================== */}
+
+      {returnTarget && (
+        <div
+          className="modal fade show d-block"
+          role="dialog"
+          aria-modal="true"
+          style={{
+            backgroundColor: "rgba(0, 0, 0, 0.6)",
+            zIndex: 1058,
+          }}
+          onClick={() => {
+            if (!submitting) closeReturnModal();
+          }}
+        >
+          <div
+            className="modal-dialog modal-dialog-centered modal-dialog-scrollable"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              className="modal-content border-0 overflow-hidden"
+              style={{ borderRadius: "12px" }}
+            >
+              <div
+                className="modal-header px-4 py-3"
+                style={{ borderBottom: "1px solid var(--shell-border)" }}
+              >
+                <h5 className="modal-title fw-bold fs-6">
+                  ยืนยันการรับคืนครุภัณฑ์?
+                </h5>
+
+                <button
+                  type="button"
+                  className="btn-close"
+                  aria-label="ปิด"
+                  disabled={submitting}
+                  onClick={closeReturnModal}
+                ></button>
+              </div>
+
+              <div className="modal-body p-4">
+                <div
+                  className="p-3 mb-3"
+                  style={{
+                    border: "1px solid var(--shell-border)",
+                    borderRadius: "8px",
+                    background: "#fafafa",
+                  }}
+                >
+                  <div className="fw-bold">{returnTarget.borrowId}</div>
+                  <small className="text-secondary d-block">
+                    {returnTarget.equipmentName} ·{" "}
+                    {returnTarget.equipmentCode}
+                  </small>
+                  <small className="text-secondary d-block">
+                    ผู้ยืม: {returnTarget.borrower}
+                  </small>
+                </div>
+
+                <PhotoPicker
+                  value={returnPhotos}
+                  onChange={setReturnPhotos}
+                  disabled={submitting}
+                  progress={uploadProgress}
+                />
+              </div>
+
+              <div
+                className="modal-footer px-4 py-3"
+                style={{ borderTop: "1px solid var(--shell-border)" }}
+              >
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-secondary px-3"
+                  disabled={submitting}
+                  onClick={closeReturnModal}
+                >
+                  ยกเลิก
+                </button>
+
+                <button
+                  type="button"
+                  className="btn btn-sm btn-success px-3"
+                  disabled={submitting}
+                  onClick={() =>
+                    void executeReturn(returnTarget, returnPhotos)
+                  }
+                >
+                  {submitting ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-2"></span>
+                      {uploadProgress
+                        ? "กำลังอัปโหลดรูป..."
+                        : "กำลังบันทึก..."}
+                    </>
+                  ) : (
+                    <>
+                      <i className="bi bi-box-arrow-in-down-left me-2"></i>
+                      บันทึกการคืน
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+      {/* =====================================================
           FOOTER
       ===================================================== */}
 
       <footer
         className="py-4 text-white"
         style={{
-          background: "#17131f",
-          marginLeft: "0",
+          background: "#171717",
         }}
       >
 
-        <div
-          className="container-fluid"
-          style={{
-            paddingLeft: "24px",
-            paddingRight: "24px",
-          }}
-        >
+        <div className="history-footer-inner">
 
           <div className="d-flex flex-column flex-md-row justify-content-between gap-3">
 
             <div>
 
-              <div className="fw-bold">
+              <div className="fw-semibold">
                 ระบบยืม–คืนครุภัณฑ์
               </div>
 
@@ -1037,66 +1174,29 @@ export default function HistoryPage() {
 
       </footer>
 
+      <style jsx>{`
+        .history-alert {
+          border: 1px solid #fecdd3;
+          border-radius: 12px;
+          background: #fff1f2;
+          color: #9f1239;
+          font-size: 14px;
+        }
+
+        .history-footer-inner {
+          margin-left: var(--admin-sidebar-width);
+          padding: 0 24px;
+        }
+
+        @media (max-width: 991.98px) {
+          .history-footer-inner {
+            margin-left: 0;
+            padding: 0 16px;
+          }
+        }
+      `}</style>
+
     </main>
-  );
-}
-
-
-/* =====================================================
-   SUMMARY CARD
-===================================================== */
-
-function SummaryCard({
-  icon,
-  number,
-  title,
-  color,
-}: {
-  icon: string;
-  number: number;
-  title: string;
-  color: string;
-}) {
-  return (
-
-    <div className="col-6">
-
-      <div className="bg-white rounded-4 shadow-sm p-3 h-100">
-
-        <div className="d-flex align-items-center gap-3">
-
-          <div
-            className="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
-            style={{
-              width: "42px",
-              height: "42px",
-              background: `${color}15`,
-              color: color,
-            }}
-          >
-
-            <i className={icon}></i>
-
-          </div>
-
-          <div>
-
-            <div className="fs-4 fw-bold">
-              {number}
-            </div>
-
-            <small className="text-secondary">
-              {title}
-            </small>
-
-          </div>
-
-        </div>
-
-      </div>
-
-    </div>
-
   );
 }
 
@@ -1110,28 +1210,32 @@ function HistoryStatusBadge({
 }: {
   status: BorrowStatus;
 }) {
-  const config = {
+  const config: Record<
+    BorrowStatus,
+    { tone: Tone; icon: string }
+  > = {
     "คืนแล้ว": {
-      background: "#d1e7dd",
-      color: "#146c43",
+      tone: "emerald",
       icon: "bi-check-circle-fill",
     },
 
     "กำลังยืม": {
-      background: "#fff3cd",
-      color: "#997404",
+      tone: "amber",
       icon: "bi-box-arrow-up-right",
     },
 
     "รออนุมัติ": {
-      background: "#cff4fc",
-      color: "#087990",
+      tone: "blue",
       icon: "bi-hourglass-split",
     },
 
+    "เกินกำหนด": {
+      tone: "rose",
+      icon: "bi-exclamation-circle-fill",
+    },
+
     "ยกเลิก": {
-      background: "#f8d7da",
-      color: "#b02a37",
+      tone: "neutral",
       icon: "bi-x-circle-fill",
     },
   };
@@ -1139,24 +1243,10 @@ function HistoryStatusBadge({
   const current = config[status];
 
   return (
-
-    <span
-      className="badge rounded-pill"
-      style={{
-        background: current.background,
-        color: current.color,
-        padding: "8px 13px",
-      }}
-    >
-
-      <i
-        className={`${current.icon} me-1`}
-      ></i>
-
+    <Pill tone={current.tone}>
+      <i className={`bi ${current.icon}`}></i>
       {status}
-
-    </span>
-
+    </Pill>
   );
 }
 
@@ -1175,45 +1265,55 @@ function DetailBox({
   value: string;
 }) {
   return (
-
     <div className="col-md-6">
+      <DetailContent
+        icon={icon}
+        title={title}
+        value={value}
+      />
+    </div>
+  );
+}
 
-      <div className="bg-light rounded-4 p-3 h-100">
+function DetailContent({
+  icon,
+  title,
+  value,
+}: {
+  icon: string;
+  title: string;
+  value: string;
+}) {
+  return (
+    <div
+      className="d-flex gap-3 p-3 h-100"
+      style={{
+        border: "1px solid var(--shell-border)",
+        borderRadius: "8px",
+        background: "#fafafa",
+      }}
+    >
 
-        <div className="d-flex gap-3">
+      <div className="ui-stat-icon tone-purple">
+        <i className={`bi ${icon}`}></i>
+      </div>
 
-          <div
-            className="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
-            style={{
-              width: "45px",
-              height: "45px",
-              background: "#eee8ff",
-              color: "#6f42c1",
-            }}
-          >
+      <div style={{ minWidth: 0 }}>
 
-            <i className={icon}></i>
+        <small
+          className="text-secondary d-block"
+          style={{ fontSize: "12px" }}
+        >
+          {title}
+        </small>
 
-          </div>
-
-          <div>
-
-            <small className="text-secondary">
-              {title}
-            </small>
-
-            <div className="fw-semibold mt-1">
-              {value}
-            </div>
-
-          </div>
-
+        <div className="fw-semibold small mt-1">
+          {value}
         </div>
 
       </div>
 
     </div>
-
   );
 }
 
@@ -1222,7 +1322,11 @@ function DetailBox({
    DATE FORMAT
 ===================================================== */
 
-function formatDate(date: string) {
+function formatDate(date: string | null | undefined) {
+  if (!date || Number.isNaN(new Date(date).getTime())) {
+    return "-";
+  }
+
   return new Date(date).toLocaleDateString(
     "th-TH",
     {

@@ -5,6 +5,34 @@ import { db } from "@/lib/db";
 
 type UserRole = "user" | "admin";
 
+const USER_TYPES = ["student", "teacher", "staff"] as const;
+type UserType = (typeof USER_TYPES)[number];
+
+/* =========================================================
+   RESOLVE USER TYPE
+   - role = user  → ต้องเลือก student / teacher / staff
+   - role = admin → ไม่ใช้ประเภทผู้ใช้ (NULL)
+========================================================= */
+
+function resolveUserType(
+  role: UserRole,
+  value: unknown
+): { ok: true; userType: UserType | null } | { ok: false } {
+  if (role === "admin") {
+    return { ok: true, userType: null };
+  }
+
+  const userType = String(value ?? "").trim();
+
+  if (!USER_TYPES.includes(userType as UserType)) {
+    return { ok: false };
+  }
+
+  return { ok: true, userType: userType as UserType };
+}
+
+const USER_TYPE_ERROR = "กรุณาเลือกประเภทผู้ใช้";
+
 /* =========================================================
    CHECK ADMIN
 ========================================================= */
@@ -47,6 +75,8 @@ export async function GET() {
         username,
         email,
         role,
+        user_type,
+        avatar_url,
         created_at,
         updated_at
       FROM users
@@ -104,7 +134,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          message: "กรุณากรอก Username, Email และ Password",
+          message: "กรุณากรอกชื่อผู้ใช้ อีเมล และรหัสผ่าน",
         },
         { status: 400 }
       );
@@ -114,7 +144,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          message: "Username ต้องมีอย่างน้อย 3 ตัวอักษร",
+          message: "ชื่อผู้ใช้ต้องมีอย่างน้อย 3 ตัวอักษร",
         },
         { status: 400 }
       );
@@ -124,7 +154,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          message: "Password ต้องมีอย่างน้อย 6 ตัวอักษร",
+          message: "รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร",
         },
         { status: 400 }
       );
@@ -134,7 +164,19 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          message: "Role ไม่ถูกต้อง",
+          message: "สิทธิ์ผู้ใช้ไม่ถูกต้อง",
+        },
+        { status: 400 }
+      );
+    }
+
+    const userTypeResult = resolveUserType(role, body.userType);
+
+    if (!userTypeResult.ok) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: USER_TYPE_ERROR,
         },
         { status: 400 }
       );
@@ -159,7 +201,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          message: "Username นี้ถูกใช้งานแล้ว",
+          message: "ชื่อผู้ใช้นี้ถูกใช้งานแล้ว",
         },
         { status: 409 }
       );
@@ -184,7 +226,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          message: "Email นี้ถูกใช้งานแล้ว",
+          message: "อีเมลนี้ถูกใช้งานแล้ว",
         },
         { status: 409 }
       );
@@ -206,15 +248,17 @@ export async function POST(request: Request) {
         username,
         email,
         password,
-        role
+        role,
+        user_type
       )
-      VALUES (?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?)
       `,
       [
         username,
         email,
         hashedPassword,
         role,
+        userTypeResult.userType,
       ]
     );
 
@@ -288,7 +332,19 @@ export async function PATCH(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          message: "Role ไม่ถูกต้อง",
+          message: "สิทธิ์ผู้ใช้ไม่ถูกต้อง",
+        },
+        { status: 400 }
+      );
+    }
+
+    const userTypeResult = resolveUserType(role, body.userType);
+
+    if (!userTypeResult.ok) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: USER_TYPE_ERROR,
         },
         { status: 400 }
       );
@@ -361,7 +417,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          message: "Email นี้ถูกใช้งานโดยผู้ใช้งานคนอื่นแล้ว",
+          message: "อีเมลนี้ถูกใช้งานโดยผู้ใช้งานคนอื่นแล้ว",
         },
         { status: 409 }
       );
@@ -377,7 +433,7 @@ export async function PATCH(request: Request) {
           {
             success: false,
             message:
-              "Password ใหม่ต้องมีอย่างน้อย 6 ตัวอักษร",
+              "รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร",
           },
           { status: 400 }
         );
@@ -394,13 +450,15 @@ export async function PATCH(request: Request) {
         SET
           email = ?,
           password = ?,
-          role = ?
+          role = ?,
+          user_type = ?
         WHERE id = ?
         `,
         [
           email,
           hashedPassword,
           role,
+          userTypeResult.userType,
           id,
         ]
       );
@@ -414,12 +472,14 @@ export async function PATCH(request: Request) {
         UPDATE users
         SET
           email = ?,
-          role = ?
+          role = ?,
+          user_type = ?
         WHERE id = ?
         `,
         [
           email,
           role,
+          userTypeResult.userType,
           id,
         ]
       );
@@ -471,7 +531,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          message: "ไม่พบ ID ผู้ใช้งาน",
+          message: "ไม่พบรหัสผู้ใช้งาน",
         },
         { status: 400 }
       );
@@ -529,6 +589,15 @@ export async function DELETE(request: Request) {
       `
       DELETE FROM users
       WHERE id = ?
+      `,
+      [id]
+    );
+
+    // ลบรูปโปรไฟล์ของผู้ใช้ที่ถูกลบ (ระบบรูปภาพกลาง)
+    await db.execute(
+      `
+      DELETE FROM images
+      WHERE owner_type = 'user' AND owner_id = ?
       `,
       [id]
     );

@@ -6,6 +6,21 @@ import {
 } from "react";
 
 import UserNavbar from "@/app/components/UserNavbar";
+import {
+  PageHeader,
+  Panel,
+  Pill,
+  StatCard,
+  type Tone,
+} from "@/app/components/ui";
+import BorrowingPhotos, {
+  PhotoPicker,
+  photoFailureText,
+  releasePhotos,
+  uploadPhotos,
+  type PickedPhoto,
+  type UploadProgress,
+} from "@/app/components/BorrowingPhotos";
 
 import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap-icons/font/bootstrap-icons.css";
@@ -48,6 +63,26 @@ export default function ReturnClient({
 
   const [error, setError] =
     useState("");
+
+  const [notice, setNotice] =
+    useState("");
+
+  // รูปสภาพครุภัณฑ์ตอนคืน (อัปโหลดหลังคืนสำเร็จ)
+  const [photos, setPhotos] =
+    useState<PickedPhoto[]>([]);
+
+  const [uploadProgress, setUploadProgress] =
+    useState<UploadProgress | null>(null);
+
+  // รายการที่เปิดดูรูปภาพ
+  const [photoItem, setPhotoItem] =
+    useState<ReturnItem | null>(null);
+
+  const closeConfirm = () => {
+    releasePhotos(photos);
+    setPhotos([]);
+    setSelectedItem(null);
+  };
 
   /* =====================================================
      STATISTICS
@@ -112,6 +147,7 @@ export default function ReturnClient({
 
     setLoading(true);
     setError("");
+    setNotice("");
 
     try {
       const response =
@@ -146,7 +182,28 @@ export default function ReturnClient({
           )
       );
 
-      setSelectedItem(null);
+      const photoSummary =
+        await uploadPhotos(
+          selectedItem.id,
+          "return",
+          photos,
+          setUploadProgress
+        );
+
+      const photoFailure =
+        photoFailureText(photoSummary);
+
+      setNotice(
+        `คืน ${selectedItem.name} สำเร็จ${
+          photoFailure
+            ? ` ${photoFailure}`
+            : photoSummary.uploaded
+              ? ` (แนบรูป ${photoSummary.uploaded} รูป)`
+              : ""
+        }`
+      );
+
+      closeConfirm();
     } catch (err) {
       console.error(
         "RETURN ERROR:",
@@ -160,6 +217,7 @@ export default function ReturnClient({
       );
     } finally {
       setLoading(false);
+      setUploadProgress(null);
     }
   };
 
@@ -173,29 +231,17 @@ export default function ReturnClient({
 
       <main className="return-main">
 
-        <div className="container-fluid px-4 py-4">
+        <div className="ui-page">
 
           {/* =================================================
               HEADER
           ================================================= */}
 
-          <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
-
-            <div>
-              <h2 className="fw-bold mb-1">
-                รายการคืน
-              </h2>
-
-              <p className="text-secondary mb-0">
-                รายการครุภัณฑ์ที่กำลังยืมและสามารถคืนได้
-              </p>
-            </div>
-
-            <div className="return-header-icon">
-              <i className="bi bi-arrow-return-left" />
-            </div>
-
-          </div>
+          <PageHeader
+            eyebrow="การคืน"
+            title="รายการคืน"
+            description="รายการครุภัณฑ์ที่กำลังยืมและสามารถคืนได้"
+          />
 
           {/* =================================================
               ERROR
@@ -203,7 +249,7 @@ export default function ReturnClient({
 
           {error && (
             <div
-              className="alert alert-danger d-flex align-items-center gap-2"
+              className="return-alert"
               role="alert"
             >
               <i className="bi bi-exclamation-triangle-fill" />
@@ -222,140 +268,152 @@ export default function ReturnClient({
             </div>
           )}
 
+          {notice && (
+            <div
+              className="return-alert return-notice"
+              role="status"
+            >
+              <i className="bi bi-check-circle-fill" />
+
+              <span>
+                {notice}
+              </span>
+
+              <button
+                type="button"
+                className="btn-close ms-auto"
+                onClick={() =>
+                  setNotice("")
+                }
+              />
+            </div>
+          )}
+
           {/* =================================================
               STATISTICS
           ================================================= */}
 
-          <div className="row g-3 mb-4">
+          <div className="row g-3">
 
             <div className="col-6 col-xl-3">
-              <ReturnStatCard
+              <StatCard
                 icon="bi-journal-text"
-                title="รายการที่ต้องคืน"
-                value={
-                  statistics.total
-                }
-                className="purple"
+                label="รายการที่ต้องคืน"
+                value={statistics.total.toLocaleString()}
+                tone="purple"
               />
             </div>
 
             <div className="col-6 col-xl-3">
-              <ReturnStatCard
+              <StatCard
                 icon="bi-box-seam"
-                title="จำนวนครุภัณฑ์"
-                value={
-                  statistics.quantity
-                }
-                className="blue"
+                label="จำนวนครุภัณฑ์"
+                value={statistics.quantity.toLocaleString()}
+                tone="blue"
               />
             </div>
 
             <div className="col-6 col-xl-3">
-              <ReturnStatCard
+              <StatCard
                 icon="bi-clock-history"
-                title="ใกล้ครบกำหนด"
-                value={
-                  statistics.dueSoon
-                }
-                className="orange"
+                label="ใกล้ครบกำหนด"
+                value={statistics.dueSoon.toLocaleString()}
+                tone="amber"
               />
             </div>
 
             <div className="col-6 col-xl-3">
-              <ReturnStatCard
+              <StatCard
                 icon="bi-exclamation-circle"
-                title="เกินกำหนด"
-                value={
-                  statistics.overdue
-                }
-                className="red"
+                label="เกินกำหนด"
+                value={statistics.overdue.toLocaleString()}
+                tone="rose"
               />
             </div>
 
           </div>
 
           {/* =================================================
-              EMPTY
+              WARNING
           ================================================= */}
 
-          {returnItems.length ===
-          0 ? (
-            <div className="card border-0 shadow-sm return-empty-card">
+          {returnItems.length > 0 &&
+            statistics.overdue > 0 && (
+              <div className="return-alert">
 
-              <div className="card-body text-center py-5">
+                <i className="bi bi-exclamation-triangle-fill" />
+
+                <div>
+                  <div className="fw-semibold">
+                    มีรายการเกินกำหนดคืน
+                  </div>
+
+                  <div className="small">
+                    กรุณาดำเนินการคืนครุภัณฑ์โดยเร็วที่สุด
+                  </div>
+                </div>
+
+              </div>
+            )}
+
+          {/* =================================================
+              LIST
+          ================================================= */}
+
+          <Panel
+            title="ครุภัณฑ์ที่ต้องคืน"
+            description="เลือกรายการที่ต้องการคืนครุภัณฑ์"
+            action={
+              returnItems.length > 0 ? (
+                <Pill tone="purple">
+                  {returnItems.length} รายการ
+                </Pill>
+              ) : undefined
+            }
+          >
+            {returnItems.length ===
+            0 ? (
+              <div className="return-empty">
 
                 <div className="return-empty-icon">
                   <i className="bi bi-check2-circle" />
                 </div>
 
-                <h4 className="fw-bold mt-3">
+                <p className="return-empty-title">
                   ไม่มีรายการที่ต้องคืน
-                </h4>
+                </p>
 
-                <p className="text-secondary mb-0">
+                <p className="return-empty-text">
                   ขณะนี้คุณไม่มีครุภัณฑ์ที่กำลังยืมอยู่
                 </p>
 
               </div>
-
-            </div>
-          ) : (
-            <>
-              {/* =================================================
-                  WARNING
-              ================================================= */}
-
-              {statistics.overdue >
-                0 && (
-                <div className="alert alert-danger border-0 shadow-sm d-flex align-items-center gap-3 mb-4">
-
-                  <div className="warning-icon">
-                    <i className="bi bi-exclamation-triangle-fill" />
-                  </div>
-
-                  <div>
-                    <div className="fw-bold">
-                      มีรายการเกินกำหนดคืน
-                    </div>
-
-                    <div className="small">
-                      กรุณาดำเนินการคืนครุภัณฑ์โดยเร็วที่สุด
-                    </div>
-                  </div>
-
-                </div>
-              )}
-
-              {/* =================================================
-                  LIST
-              ================================================= */}
-
-              <div className="row g-4">
+            ) : (
+              <div className="d-flex flex-column gap-3">
 
                 {returnItems.map(
                   (item) => (
-                    <div
-                      className="col-12"
+                    <ReturnCard
                       key={item.id}
-                    >
-                      <ReturnCard
-                        item={item}
-                        formatDate={
-                          formatDate
-                        }
-                        onReturn={() =>
-                          setSelectedItem(
-                            item
-                          )
-                        }
-                      />
-                    </div>
+                      item={item}
+                      formatDate={
+                        formatDate
+                      }
+                      onReturn={() =>
+                        setSelectedItem(
+                          item
+                        )
+                      }
+                      onPhotos={() =>
+                        setPhotoItem(item)
+                      }
+                    />
                   )
                 )}
 
               </div>
-            </>
-          )}
+            )}
+          </Panel>
 
         </div>
       </main>
@@ -371,13 +429,73 @@ export default function ReturnClient({
           formatDate={formatDate}
           onCancel={() => {
             if (!loading) {
-              setSelectedItem(null);
+              closeConfirm();
             }
           }}
           onConfirm={
             handleReturn
           }
+          photos={photos}
+          onPhotosChange={setPhotos}
+          uploadProgress={uploadProgress}
         />
+      )}
+
+      {/* =====================================================
+          PHOTOS MODAL
+      ===================================================== */}
+
+      {photoItem && (
+        <div
+          className="modal fade show d-block"
+          tabIndex={-1}
+          role="dialog"
+          style={{
+            backgroundColor:
+              "rgba(0,0,0,0.45)",
+            zIndex: 2100,
+          }}
+          onClick={() =>
+            setPhotoItem(null)
+          }
+        >
+          <div
+            className="modal-dialog modal-dialog-centered modal-dialog-scrollable"
+            onClick={(e) =>
+              e.stopPropagation()
+            }
+          >
+            <div className="modal-content return-modal-content">
+              <div className="modal-header">
+                <div>
+                  <h5 className="modal-title fs-6 fw-semibold">
+                    รูปภาพ · {photoItem.name}
+                  </h5>
+                  <small className="text-secondary">
+                    {photoItem.borrowId}
+                  </small>
+                </div>
+
+                <button
+                  type="button"
+                  className="btn-close"
+                  aria-label="ปิด"
+                  onClick={() =>
+                    setPhotoItem(null)
+                  }
+                />
+              </div>
+
+              <div className="modal-body pt-0">
+                <BorrowingPhotos
+                  borrowingId={photoItem.id}
+                  uploadKinds={["borrow"]}
+                  allowDelete
+                />
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* =====================================================
@@ -389,202 +507,184 @@ export default function ReturnClient({
         .return-main {
           margin-left: 270px;
           min-height: 100vh;
-          background: #f7f7fb;
+          background: #fafafa;
         }
 
-        .return-header-icon {
-          width: 54px;
-          height: 54px;
-          border-radius: 16px;
-          background: #eee8fa;
-          color: #6f42c1;
+        .return-alert {
           display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 24px;
+          align-items: flex-start;
+          gap: 12px;
+          padding: 14px 16px;
+          border: 1px solid #fecdd3;
+          border-radius: 12px;
+          background: #fff1f2;
+          color: #9f1239;
+          font-size: 14px;
         }
 
-        .return-stat-card {
-          background: #ffffff;
-          border-radius: 16px;
-          padding: 20px;
-          box-shadow:
-            0 4px 18px
-            rgba(0, 0, 0, 0.05);
-          height: 100%;
+        .return-alert > i {
+          font-size: 18px;
+          color: #e11d48;
+          line-height: 1.3;
         }
 
-        .return-stat-icon {
-          width: 48px;
-          height: 48px;
-          border-radius: 14px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 21px;
+        .return-notice {
+          border-color: #a7f3d0;
+          background: #ecfdf5;
+          color: #065f46;
         }
 
-        .return-stat-icon.purple {
-          background: #eee8fa;
-          color: #6f42c1;
+        .return-notice > i {
+          color: #059669;
         }
 
-        .return-stat-icon.blue {
-          background: #e7f1ff;
-          color: #0d6efd;
-        }
-
-        .return-stat-icon.orange {
-          background: #fff2df;
-          color: #fd7e14;
-        }
-
-        .return-stat-icon.red {
-          background: #fde7e9;
-          color: #dc3545;
-        }
-
-        .return-empty-card {
-          border-radius: 20px;
+        .return-empty {
+          padding: 40px 20px;
+          text-align: center;
         }
 
         .return-empty-icon {
-          width: 80px;
-          height: 80px;
-          border-radius: 50%;
-          background: #e8f7ee;
-          color: #198754;
+          width: 48px;
+          height: 48px;
+          border-radius: 12px;
+          background: #ecfdf5;
+          color: #047857;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 40px;
-          margin: auto;
+          font-size: 22px;
+          margin: 0 auto 14px;
         }
 
-        .warning-icon {
-          width: 44px;
-          height: 44px;
-          flex-shrink: 0;
-          border-radius: 12px;
-          background: rgba(220,53,69,0.12);
-          color: #dc3545;
-          display: flex;
-          align-items: center;
-          justify-content: center;
+        .return-empty-title {
+          margin: 0 0 4px;
+          font-size: 15px;
+          font-weight: 600;
+          color: #171717;
+        }
+
+        .return-empty-text {
+          margin: 0;
+          font-size: 13px;
+          color: #737373;
         }
 
         .return-card {
           background: #ffffff;
-          border: 0;
-          border-radius: 18px;
-          box-shadow:
-            0 4px 18px
-            rgba(0, 0, 0, 0.06);
-          overflow: hidden;
-          transition: 0.2s ease;
+          border: 1px solid #e4e4e4;
+          border-radius: 12px;
+          padding: 16px 18px;
+          transition: box-shadow 0.15s ease;
         }
 
         .return-card:hover {
-          transform: translateY(-2px);
-          box-shadow:
-            0 8px 24px
-            rgba(0, 0, 0, 0.09);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+        }
+
+        .return-card.is-overdue {
+          border-color: #fecdd3;
         }
 
         .return-card-icon {
-          width: 64px;
-          height: 64px;
-          border-radius: 16px;
-          background: #f0eaff;
+          width: 40px;
+          height: 40px;
+          border-radius: 8px;
+          background: #f3efff;
           color: #6f42c1;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 28px;
+          font-size: 18px;
           flex-shrink: 0;
         }
 
         .return-code {
-          color: #6f42c1;
-          font-size: 13px;
-          font-weight: 700;
+          color: #737373;
+          font-size: 12px;
+          font-weight: 600;
+          font-family: var(--font-geist-mono, ui-monospace, monospace);
         }
 
         .return-equipment-name {
-          font-size: 19px;
-          font-weight: 700;
-          color: #212529;
+          font-size: 15px;
+          font-weight: 600;
+          color: #171717;
         }
 
         .return-info {
           display: flex;
           align-items: center;
           gap: 8px;
-          color: #6c757d;
-          font-size: 14px;
+          color: #737373;
+          font-size: 13px;
         }
 
         .return-info i {
-          color: #6f42c1;
+          color: #a3a3a3;
         }
 
         .return-due-box {
           min-width: 170px;
-          border-radius: 14px;
-          padding: 14px 16px;
-          background: #f8f9fa;
+          border-radius: 8px;
+          padding: 10px 14px;
+          background: #f5f5f5;
+          color: #404040;
+          font-size: 13px;
         }
 
         .return-due-box.warning {
-          background: #fff4df;
-          color: #9a6100;
+          background: #fffbeb;
+          color: #b45309;
         }
 
         .return-due-box.danger {
-          background: #fde8ea;
-          color: #b02a37;
+          background: #fff1f2;
+          color: #e11d48;
         }
 
         .return-due-box.success {
-          background: #e8f7ee;
-          color: #146c43;
+          background: #ecfdf5;
+          color: #047857;
         }
 
-        .return-status {
-          display: inline-flex;
-          align-items: center;
-          padding: 6px 11px;
-          border-radius: 20px;
-          font-size: 12px;
-          font-weight: 700;
+        .return-due-label {
+          font-size: 11px;
+          opacity: 0.85;
         }
 
-        .return-status.approved {
-          background: #e7f1ff;
-          color: #0d6efd;
+        .return-purpose {
+          margin-top: 14px;
+          padding-top: 12px;
+          border-top: 1px solid #f0f0f0;
+          font-size: 13px;
         }
 
-        .return-status.borrowed {
-          background: #e8f7ee;
-          color: #198754;
-        }
-
-        .return-status.overdue {
-          background: #fde8ea;
-          color: #dc3545;
+        .return-modal-content {
+          border: 1px solid #e4e4e4;
+          border-radius: 12px;
+          box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
         }
 
         .return-modal-icon {
-          width: 70px;
-          height: 70px;
-          border-radius: 50%;
-          background: #fff3cd;
-          color: #997404;
+          width: 48px;
+          height: 48px;
+          border-radius: 12px;
+          background: #fffbeb;
+          color: #b45309;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 32px;
-          margin: 0 auto 18px;
+          font-size: 22px;
+          margin: 0 auto 14px;
+        }
+
+        .return-modal-summary {
+          margin: 20px 0;
+          padding: 12px 14px;
+          border: 1px solid #e4e4e4;
+          border-radius: 8px;
+          background: #fafafa;
+          text-align: left;
         }
 
         @media (max-width: 991.98px) {
@@ -611,56 +711,6 @@ export default function ReturnClient({
 }
 
 /* =========================================================
-   STAT CARD
-========================================================= */
-
-function ReturnStatCard({
-  icon,
-  title,
-  value,
-  className,
-}: {
-  icon: string;
-  title: string;
-  value: number;
-  className:
-    | "purple"
-    | "blue"
-    | "orange"
-    | "red";
-}) {
-  return (
-    <div className="return-stat-card">
-
-      <div className="d-flex align-items-center gap-3">
-
-        <div
-          className={`return-stat-icon ${className}`}
-        >
-          <i
-            className={`bi ${icon}`}
-          />
-        </div>
-
-        <div>
-
-          <div className="small text-secondary">
-            {title}
-          </div>
-
-          <div className="fs-4 fw-bold">
-            {value.toLocaleString()}
-          </div>
-
-        </div>
-
-      </div>
-
-    </div>
-  );
-}
-
-/* =========================================================
    RETURN CARD
 ========================================================= */
 
@@ -668,12 +718,14 @@ function ReturnCard({
   item,
   formatDate,
   onReturn,
+  onPhotos,
 }: {
   item: ReturnItem;
   formatDate: (
     date: string
   ) => string;
   onReturn: () => void;
+  onPhotos: () => void;
 }) {
   const isOverdue =
     item.status === "overdue" ||
@@ -693,172 +745,181 @@ function ReturnCard({
   }
 
   return (
-    <div className="return-card">
+    <div
+      className={`return-card ${
+        isOverdue ? "is-overdue" : ""
+      }`}
+    >
 
-      <div className="p-4">
+      <div className="row align-items-center g-3">
 
-        <div className="row align-items-center g-4">
+        {/* =================================================
+            ICON
+        ================================================= */}
 
-          {/* =================================================
-              ICON
-          ================================================= */}
+        <div className="col-auto">
 
-          <div className="col-auto">
+          <div className="return-card-icon">
+            <i className="bi bi-box-seam" />
+          </div>
 
-            <div className="return-card-icon">
-              <i className="bi bi-box-seam" />
-            </div>
+        </div>
+
+        {/* =================================================
+            INFORMATION
+        ================================================= */}
+
+        <div className="col">
+
+          <div className="d-flex flex-wrap align-items-center gap-2 mb-1">
+
+            <span className="return-code">
+              {item.equipmentCode}
+            </span>
+
+            <StatusBadge
+              status={item.status}
+            />
 
           </div>
 
-          {/* =================================================
-              INFORMATION
-          ================================================= */}
-
-          <div className="col">
-
-            <div className="d-flex flex-wrap align-items-center gap-2 mb-1">
-
-              <span className="return-code">
-                {item.equipmentCode}
-              </span>
-
-              <StatusBadge
-                status={item.status}
-              />
-
-            </div>
-
-            <div className="return-equipment-name mb-2">
-              {item.name}
-            </div>
-
-            <div className="row g-2">
-
-              <div className="col-md-6">
-
-                <div className="return-info">
-                  <i className="bi bi-tag" />
-                  {item.category}
-                </div>
-
-              </div>
-
-              <div className="col-md-6">
-
-                <div className="return-info">
-                  <i className="bi bi-geo-alt" />
-                  {item.location}
-                </div>
-
-              </div>
-
-              <div className="col-md-6">
-
-                <div className="return-info">
-                  <i className="bi bi-calendar-check" />
-
-                  ยืมเมื่อ{" "}
-                  {formatDate(
-                    item.borrowDate
-                  )}
-                </div>
-
-              </div>
-
-              <div className="col-md-6">
-
-                <div className="return-info">
-                  <i className="bi bi-box" />
-
-                  จำนวน{" "}
-                  {item.quantity} รายการ
-                </div>
-
-              </div>
-
-            </div>
-
+          <div className="return-equipment-name mb-2">
+            {item.name}
           </div>
 
-          {/* =================================================
-              DUE DATE
-          ================================================= */}
+          <div className="row g-2">
 
-          <div className="col-12 col-lg-auto">
+            <div className="col-md-6">
 
-            <div
-              className={`return-due-box ${dueClass}`}
-            >
-
-              <div className="small">
-                กำหนดคืน
+              <div className="return-info">
+                <i className="bi bi-tag" />
+                {item.category}
               </div>
 
-              <div className="fw-bold">
+            </div>
+
+            <div className="col-md-6">
+
+              <div className="return-info">
+                <i className="bi bi-geo-alt" />
+                {item.location}
+              </div>
+
+            </div>
+
+            <div className="col-md-6">
+
+              <div className="return-info">
+                <i className="bi bi-calendar-check" />
+
+                ยืมเมื่อ{" "}
                 {formatDate(
-                  item.dueDate
+                  item.borrowDate
                 )}
               </div>
 
-              <div className="small mt-1">
+            </div>
 
-                {isOverdue
-                  ? `เกินกำหนด ${Math.abs(
-                      item.daysLeft
-                    )} วัน`
-                  : item.daysLeft ===
-                    0
-                  ? "ครบกำหนดวันนี้"
-                  : `เหลือ ${item.daysLeft} วัน`}
+            <div className="col-md-6">
 
+              <div className="return-info">
+                <i className="bi bi-box" />
+
+                จำนวน{" "}
+                {item.quantity} รายการ
               </div>
 
             </div>
-
-          </div>
-
-          {/* =================================================
-              RETURN BUTTON
-          ================================================= */}
-
-          <div className="col-12 col-lg-auto">
-
-            <button
-              type="button"
-              className={`btn ${
-                isOverdue
-                  ? "btn-danger"
-                  : "btn-primary"
-              } px-4`}
-              onClick={onReturn}
-            >
-              <i className="bi bi-arrow-return-left me-2" />
-
-              คืนครุภัณฑ์
-            </button>
 
           </div>
 
         </div>
 
-        {/* PURPOSE */}
+        {/* =================================================
+            DUE DATE
+        ================================================= */}
 
-        {item.purpose && (
-          <div className="mt-3 pt-3 border-top">
+        <div className="col-12 col-lg-auto">
 
-            <span className="text-secondary small">
-              วัตถุประสงค์ในการยืม:{" "}
-            </span>
+          <div
+            className={`return-due-box ${dueClass}`}
+          >
 
-            <span className="small">
-              {item.purpose}
-            </span>
+            <div className="return-due-label">
+              กำหนดคืน
+            </div>
+
+            <div className="fw-semibold">
+              {formatDate(
+                item.dueDate
+              )}
+            </div>
+
+            <div className="small mt-1">
+
+              {isOverdue
+                ? `เกินกำหนด ${Math.abs(
+                    item.daysLeft
+                  )} วัน`
+                : item.daysLeft ===
+                  0
+                ? "ครบกำหนดวันนี้"
+                : `เหลือ ${item.daysLeft} วัน`}
+
+            </div>
 
           </div>
-        )}
+
+        </div>
+
+        {/* =================================================
+            RETURN BUTTON
+        ================================================= */}
+
+        <div className="col-12 col-lg-auto d-flex gap-2">
+
+          <button
+            type="button"
+            className="btn btn-sm btn-outline-secondary px-3"
+            onClick={onPhotos}
+          >
+            <i className="bi bi-images me-2" />
+            รูปภาพ
+          </button>
+
+          <button
+            type="button"
+            className={`btn btn-sm ${
+              isOverdue
+                ? "btn-danger"
+                : "btn-primary"
+            } px-3`}
+            onClick={onReturn}
+          >
+            <i className="bi bi-arrow-return-left me-2" />
+
+            คืนครุภัณฑ์
+          </button>
+
+        </div>
 
       </div>
+
+      {/* PURPOSE */}
+
+      {item.purpose && (
+        <div className="return-purpose">
+
+          <span className="text-secondary">
+            วัตถุประสงค์ในการยืม:{" "}
+          </span>
+
+          <span>
+            {item.purpose}
+          </span>
+
+        </div>
+      )}
 
     </div>
   );
@@ -873,20 +934,23 @@ function StatusBadge({
 }: {
   status: ReturnStatus;
 }) {
-  const config = {
+  const config: Record<
+    ReturnStatus,
+    { text: string; tone: Tone }
+  > = {
     approved: {
       text: "อนุมัติแล้ว",
-      className: "approved",
+      tone: "purple",
     },
 
     borrowed: {
       text: "กำลังยืม",
-      className: "borrowed",
+      tone: "blue",
     },
 
     overdue: {
       text: "เกินกำหนด",
-      className: "overdue",
+      tone: "rose",
     },
   };
 
@@ -894,11 +958,9 @@ function StatusBadge({
     config[status];
 
   return (
-    <span
-      className={`return-status ${current.className}`}
-    >
+    <Pill tone={current.tone}>
       {current.text}
-    </span>
+    </Pill>
   );
 }
 
@@ -912,6 +974,9 @@ function ReturnConfirmModal({
   formatDate,
   onCancel,
   onConfirm,
+  photos,
+  onPhotosChange,
+  uploadProgress,
 }: {
   item: ReturnItem;
   loading: boolean;
@@ -920,6 +985,9 @@ function ReturnConfirmModal({
   ) => string;
   onCancel: () => void;
   onConfirm: () => void;
+  photos: PickedPhoto[];
+  onPhotosChange: (photos: PickedPhoto[]) => void;
+  uploadProgress: UploadProgress | null;
 }) {
   return (
     <div
@@ -928,7 +996,7 @@ function ReturnConfirmModal({
       role="dialog"
       style={{
         backgroundColor:
-          "rgba(0,0,0,0.55)",
+          "rgba(0,0,0,0.45)",
         zIndex: 2100,
       }}
       onClick={() => {
@@ -945,7 +1013,7 @@ function ReturnConfirmModal({
         }
       >
 
-        <div className="modal-content border-0 shadow-lg rounded-4">
+        <div className="modal-content return-modal-content">
 
           <div className="modal-body p-4 text-center">
 
@@ -953,17 +1021,17 @@ function ReturnConfirmModal({
               <i className="bi bi-question-lg" />
             </div>
 
-            <h4 className="fw-bold mb-2">
+            <h4 className="fw-semibold fs-5 mb-2">
               ยืนยันการคืนครุภัณฑ์?
             </h4>
 
-            <p className="text-secondary">
+            <p className="text-secondary small mb-0">
               คุณต้องการคืนครุภัณฑ์รายการนี้ใช่หรือไม่
             </p>
 
-            <div className="bg-light rounded-4 p-3 text-start my-4">
+            <div className="return-modal-summary">
 
-              <div className="fw-bold">
+              <div className="fw-semibold">
                 {item.name}
               </div>
 
@@ -986,11 +1054,20 @@ function ReturnConfirmModal({
 
             </div>
 
+            <div className="mb-3">
+              <PhotoPicker
+                value={photos}
+                onChange={onPhotosChange}
+                disabled={loading}
+                progress={uploadProgress}
+              />
+            </div>
+
             <div className="d-flex gap-2">
 
               <button
                 type="button"
-                className="btn btn-light border flex-fill"
+                className="btn btn-outline-secondary flex-fill"
                 onClick={onCancel}
                 disabled={loading}
               >

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import UserNavbar from "@/app/components/UserNavbar";
+import { PageHeader, StatCard, Panel, Pill } from "@/app/components/ui";
 
 import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap-icons/font/bootstrap-icons.css";
@@ -54,8 +55,39 @@ export default async function UserDashboardPage() {
     redirect("/login");
   }
 
-  const userName = session.user.name || "ผู้ใช้งาน";
-  const userEmail = session.user.email || "-";
+  // ข้อมูลบัญชีล่าสุดจากฐานข้อมูล (session อาจเก่าถ้าแก้โปรไฟล์ภายหลัง)
+  let userName = session.user.name || "ผู้ใช้งาน";
+  let userEmail = session.user.email || "-";
+  let userTypeLabel = "ผู้ใช้งาน";
+
+  try {
+    const [userRows] = await db.execute(
+      `SELECT username, email, user_type FROM users WHERE id = ? LIMIT 1`,
+      [userId]
+    );
+
+    const user = (
+      userRows as {
+        username: string;
+        email: string;
+        user_type: "student" | "teacher" | "staff" | null;
+      }[]
+    )[0];
+
+    if (user) {
+      userName = user.username;
+      userEmail = user.email;
+      userTypeLabel = user.user_type
+        ? {
+            student: "นักศึกษา",
+            teacher: "อาจารย์",
+            staff: "เจ้าหน้าที่",
+          }[user.user_type]
+        : "ผู้ใช้งาน (ยังไม่ระบุประเภท)";
+    }
+  } catch (error) {
+    console.error("USER DASHBOARD PROFILE ERROR:", error);
+  }
 
   /* =========================================================
      DEFAULT DATA
@@ -170,9 +202,10 @@ export default async function UserDashboardPage() {
      RENDER
   ========================================================= */
 
+
   return (
     <div
-      className="bg-light min-vh-100"
+      className="min-vh-100"
       style={{
         overflowX: "hidden",
       }}
@@ -184,217 +217,152 @@ export default async function UserDashboardPage() {
       ===================================================== */}
 
       <main className="user-main-content">
-        <div className="container-fluid p-3 p-md-4 p-lg-5">
+        <div className="ui-page">
 
           {/* =================================================
               HEADER
           ================================================= */}
 
-          <div className="dashboard-header mb-4">
-            <div>
-              <h2 className="fw-bold mb-1">
-                Dashboard
-              </h2>
-
-              <p className="text-secondary mb-0">
+          <PageHeader
+            eyebrow="ภาพรวมของฉัน"
+            title="แดชบอร์ด"
+            description={
+              <>
                 ยินดีต้อนรับกลับมา,{" "}
                 <span className="fw-semibold text-dark">
                   {userName}
                 </span>
-              </p>
-            </div>
-          </div>
+              </>
+            }
+          />
 
           {/* =================================================
               STAT CARDS
           ================================================= */}
 
-          <div className="row g-4 mb-4">
-
-            {/* TOTAL */}
-
-            <div className="col-12 col-sm-6 col-xl-3">
-              <DashboardCard
-                title="รายการยืมทั้งหมด"
-                value={stats.total}
+          <div className="row g-3">
+            <div className="col-6 col-xl-3">
+              <StatCard
+                label="รายการยืมทั้งหมด"
+                value={stats.total.toLocaleString("th-TH")}
                 icon="bi-box-arrow-up-right"
-                bg="#eee8ff"
-                color="#6f42c1"
+                tone="purple"
               />
             </div>
 
-            {/* BORROWING */}
-
-            <div className="col-12 col-sm-6 col-xl-3">
-              <DashboardCard
-                title="กำลังยืม"
-                value={stats.borrowing}
+            <div className="col-6 col-xl-3">
+              <StatCard
+                label="กำลังยืม"
+                value={stats.borrowing.toLocaleString("th-TH")}
                 icon="bi-box-seam"
-                bg="#e8f4ff"
-                color="#0d6efd"
+                tone="blue"
               />
             </div>
 
-            {/* PENDING */}
-
-            <div className="col-12 col-sm-6 col-xl-3">
-              <DashboardCard
-                title="รออนุมัติ"
-                value={stats.pending}
+            <div className="col-6 col-xl-3">
+              <StatCard
+                label="รออนุมัติ"
+                value={stats.pending.toLocaleString("th-TH")}
                 icon="bi-hourglass-split"
-                bg="#fff4df"
-                color="#fd7e14"
+                tone="amber"
               />
             </div>
 
-            {/* RETURNED */}
-
-            <div className="col-12 col-sm-6 col-xl-3">
-              <DashboardCard
-                title="คืนแล้ว"
-                value={stats.returned}
+            <div className="col-6 col-xl-3">
+              <StatCard
+                label="คืนแล้ว"
+                value={stats.returned.toLocaleString("th-TH")}
                 icon="bi-check-circle"
-                bg="#e8f8ef"
-                color="#198754"
+                tone="emerald"
               />
             </div>
-
           </div>
 
           {/* =================================================
-              MAIN CONTENT
+              QUICK MENU + ACCOUNT
           ================================================= */}
 
-          <div className="row g-4">
-
-            {/* =================================================
-                QUICK MENU
-            ================================================= */}
+          <div className="row g-3">
 
             <div className="col-12 col-xl-7">
-
-              <div className="card border-0 shadow-sm rounded-4 h-100">
-
-                <div className="card-body p-4">
-
-                  <div className="d-flex justify-content-between align-items-center mb-4">
-
-                    <h5 className="fw-bold mb-0">
-                      เมนูด่วน
-                    </h5>
-
-                    <i
-                      className="bi bi-grid fs-5"
-                      style={{
-                        color: "#6f42c1",
-                      }}
-                    ></i>
-
+              <Panel
+                title="เมนูด่วน"
+                description="ทางลัดไปยังหน้าที่ใช้บ่อย"
+                className="h-100"
+              >
+                <div className="row g-2">
+                  <div className="col-12 col-md-6">
+                    <QuickMenu
+                      href="/equipment"
+                      icon="bi-search"
+                      title="ค้นหาครุภัณฑ์"
+                      description="ดูครุภัณฑ์ที่สามารถยืมได้"
+                    />
                   </div>
 
-                  <div className="row g-3">
-
-                    <div className="col-12 col-md-6">
-                      <QuickMenu
-                        href="/equipment"
-                        icon="bi-search"
-                        title="ค้นหาครุภัณฑ์"
-                        description="ดูครุภัณฑ์ที่สามารถยืมได้"
-                      />
-                    </div>
-
-                    <div className="col-12 col-md-6">
-                      <QuickMenu
-                        href="/borrowing"
-                        icon="bi-box-arrow-up-right"
-                        title="รายการยืมของฉัน"
-                        description="ตรวจสอบสถานะรายการยืม"
-                      />
-                    </div>
-
-                    <div className="col-12 col-md-6">
-                      <QuickMenu
-                        href="/return"
-                        icon="bi-box-arrow-in-left"
-                        title="รายการคืน"
-                        description="จัดการรายการที่ต้องคืน"
-                      />
-                    </div>
-
-                    <div className="col-12 col-md-6">
-                      <QuickMenu
-                        href="/history"
-                        icon="bi-clock-history"
-                        title="ประวัติการยืม–คืน"
-                        description="ดูประวัติการใช้งานทั้งหมด"
-                      />
-                    </div>
-
+                  <div className="col-12 col-md-6">
+                    <QuickMenu
+                      href="/borrowing"
+                      icon="bi-box-arrow-up-right"
+                      title="รายการยืมของฉัน"
+                      description="ตรวจสอบสถานะรายการยืม"
+                    />
                   </div>
 
+                  <div className="col-12 col-md-6">
+                    <QuickMenu
+                      href="/return"
+                      icon="bi-box-arrow-in-left"
+                      title="รายการคืน"
+                      description="จัดการรายการที่ต้องคืน"
+                    />
+                  </div>
+
+                  <div className="col-12 col-md-6">
+                    <QuickMenu
+                      href="/history"
+                      icon="bi-clock-history"
+                      title="ประวัติการยืม–คืน"
+                      description="ดูประวัติการใช้งานทั้งหมด"
+                    />
+                  </div>
                 </div>
-              </div>
-
+              </Panel>
             </div>
 
-            {/* =================================================
-                ACCOUNT INFO
-            ================================================= */}
-
             <div className="col-12 col-xl-5">
+              <Panel
+                title="ข้อมูลบัญชี"
+                description="ข้อมูลผู้ใช้งานที่เข้าสู่ระบบ"
+                className="h-100"
+              >
+                <InfoRow
+                  icon="bi-person"
+                  label="ชื่อผู้ใช้"
+                  value={userName}
+                />
 
-              <div className="card border-0 shadow-sm rounded-4 h-100">
+                <InfoRow
+                  icon="bi-envelope"
+                  label="อีเมล"
+                  value={userEmail}
+                />
 
-                <div className="card-body p-4">
+                <InfoRow
+                  icon="bi-shield-check"
+                  label="ประเภทผู้ใช้"
+                  value={userTypeLabel}
+                  last
+                />
 
-                  <div className="d-flex justify-content-between align-items-center mb-3">
-
-                    <h5 className="fw-bold mb-0">
-                      ข้อมูลบัญชี
-                    </h5>
-
-                    <div
-                      className="account-icon"
-                    >
-                      <i className="bi bi-person"></i>
-                    </div>
-
-                  </div>
-
-                  <InfoRow
-                    icon="bi-person"
-                    label="Username"
-                    value={userName}
-                  />
-
-                  <InfoRow
-                    icon="bi-envelope"
-                    label="Email"
-                    value={userEmail}
-                  />
-
-                  <InfoRow
-                    icon="bi-shield-check"
-                    label="สิทธิ์การใช้งาน"
-                    value="ผู้ใช้งาน"
-                  />
-
-                  <div className="mt-4">
-
-                    <Link
-                      href="/profile"
-                      className="btn btn-outline-primary rounded-pill w-100 profile-btn"
-                    >
-                      <i className="bi bi-person me-2"></i>
-                      จัดการโปรไฟล์
-                    </Link>
-
-                  </div>
-
-                </div>
-
-              </div>
-
+                <Link
+                  href="/profile"
+                  className="btn btn-sm btn-outline-secondary w-100 mt-3"
+                >
+                  <i className="bi bi-person me-2"></i>
+                  จัดการโปรไฟล์
+                </Link>
+              </Panel>
             </div>
 
           </div>
@@ -403,214 +371,151 @@ export default async function UserDashboardPage() {
               RECENT BORROWINGS
           ================================================= */}
 
-          <div className="card border-0 shadow-sm rounded-4 mt-4">
+          <Panel
+            flush
+            title="รายการล่าสุด"
+            description="รายการยืม–คืนล่าสุดของคุณ"
+            action={
+              <Link
+                href="/history"
+                className="dashboard-link"
+              >
+                ดูทั้งหมด
+                <i className="bi bi-arrow-right ms-1"></i>
+              </Link>
+            }
+          >
+            {recentBorrowings.length === 0 ? (
 
-            <div className="card-body p-4">
+              /* =================================================
+                 EMPTY STATE
+              ================================================= */
 
-              <div className="d-flex justify-content-between align-items-center mb-4">
-
-                <div>
-                  <h5 className="fw-bold mb-1">
-                    รายการล่าสุด
-                  </h5>
-
-                  <small className="text-secondary">
-                    รายการยืม–คืนล่าสุดของคุณ
-                  </small>
+              <div className="text-center py-5 px-3">
+                <div className="dashboard-empty-icon mx-auto mb-3">
+                  <i className="bi bi-inbox"></i>
                 </div>
+
+                <p className="fw-semibold mb-1">
+                  ยังไม่มีรายการยืม
+                </p>
+
+                <p className="text-secondary small mb-3">
+                  คุณยังไม่มีประวัติการยืมครุภัณฑ์
+                </p>
 
                 <Link
-                  href="/history"
-                  className="text-decoration-none fw-semibold"
-                  style={{
-                    color: "#6f42c1",
-                  }}
+                  href="/equipment"
+                  className="btn btn-sm dashboard-primary-btn px-3"
                 >
-                  ดูทั้งหมด
-                  <i className="bi bi-arrow-right ms-2"></i>
+                  <i className="bi bi-search me-2"></i>
+                  ค้นหาครุภัณฑ์
                 </Link>
-
               </div>
 
-              {recentBorrowings.length === 0 ? (
+            ) : (
 
-                /* =================================================
-                   EMPTY STATE
-                ================================================= */
+              /* =================================================
+                 TABLE
+              ================================================= */
 
-                <div className="text-center py-5">
+              <div className="table-responsive">
+                <table className="ui-table dashboard-table">
+                  <thead>
+                    <tr>
+                      <th>ครุภัณฑ์</th>
+                      <th>จำนวน</th>
+                      <th>วันที่ยืม</th>
+                      <th>กำหนดคืน</th>
+                      <th>สถานะ</th>
+                    </tr>
+                  </thead>
 
-                  <div
-                    className="mx-auto mb-3 d-flex align-items-center justify-content-center rounded-circle"
-                    style={{
-                      width: "76px",
-                      height: "76px",
-                      background: "#eee8ff",
-                      color: "#6f42c1",
-                    }}
-                  >
-                    <i className="bi bi-inbox fs-3"></i>
-                  </div>
+                  <tbody>
+                    {recentBorrowings.map((item) => {
+                      const isOverdue =
+                        item.status !== "returned" &&
+                        new Date(item.due_date).getTime() <
+                          new Date().getTime();
 
-                  <h6 className="fw-semibold mb-2">
-                    ยังไม่มีรายการยืม
-                  </h6>
+                      return (
+                        <tr key={item.id}>
+                          {/* EQUIPMENT */}
 
-                  <p className="text-secondary mb-3">
-                    คุณยังไม่มีประวัติการยืมครุภัณฑ์
-                  </p>
-
-                  <Link
-                    href="/equipment"
-                    className="btn dashboard-primary-btn rounded-pill px-4"
-                  >
-                    <i className="bi bi-search me-2"></i>
-                    ค้นหาครุภัณฑ์
-                  </Link>
-
-                </div>
-
-              ) : (
-
-                /* =================================================
-                   TABLE
-                ================================================= */
-
-                <div className="table-responsive">
-
-                  <table className="table align-middle mb-0">
-
-                    <thead>
-                      <tr>
-                        <th className="border-0 text-secondary">
-                          ครุภัณฑ์
-                        </th>
-
-                        <th className="border-0 text-secondary">
-                          จำนวน
-                        </th>
-
-                        <th className="border-0 text-secondary">
-                          วันที่ยืม
-                        </th>
-
-                        <th className="border-0 text-secondary">
-                          กำหนดคืน
-                        </th>
-
-                        <th className="border-0 text-secondary">
-                          สถานะ
-                        </th>
-                      </tr>
-                    </thead>
-
-                    <tbody>
-
-                      {recentBorrowings.map((item) => {
-
-                        const isOverdue =
-                          item.status !== "returned" &&
-                          new Date(item.due_date).getTime() <
-                            new Date().getTime();
-
-                        return (
-                          <tr key={item.id}>
-
-                            {/* EQUIPMENT */}
-
-                            <td>
-
-                              <div className="d-flex align-items-center gap-3">
-
-                                <div
-                                  className="equipment-icon"
-                                >
-                                  <i className="bi bi-box-seam"></i>
-                                </div>
-
-                                <div>
-
-                                  <div className="fw-semibold">
-                                    {item.equipment_name}
-                                  </div>
-
-                                  <small className="text-secondary">
-                                    {item.equipment_code}
-                                  </small>
-
-                                </div>
-
+                          <td>
+                            <div className="d-flex align-items-center gap-3">
+                              <div className="equipment-icon">
+                                <i className="bi bi-box-seam"></i>
                               </div>
 
-                            </td>
+                              <div>
+                                <div className="fw-semibold">
+                                  {item.equipment_name}
+                                </div>
 
-                            {/* QUANTITY */}
+                                <small className="text-secondary">
+                                  {item.equipment_code}
+                                </small>
+                              </div>
+                            </div>
+                          </td>
 
-                            <td>
-                              <span className="fw-semibold">
-                                {item.quantity}
-                              </span>
-                            </td>
+                          {/* QUANTITY */}
 
-                            {/* BORROW DATE */}
+                          <td>
+                            <span className="fw-semibold">
+                              {item.quantity}
+                            </span>
+                          </td>
 
-                            <td>
-                              <span className="text-secondary">
-                                {formatDate(item.borrow_date)}
-                              </span>
-                            </td>
+                          {/* BORROW DATE */}
 
-                            {/* DUE DATE */}
+                          <td>
+                            <span className="text-secondary">
+                              {formatDate(item.borrow_date)}
+                            </span>
+                          </td>
 
-                            <td>
+                          {/* DUE DATE */}
 
-                              <span
-                                className={
-                                  isOverdue
-                                    ? "text-danger fw-semibold"
-                                    : "text-secondary"
-                                }
-                              >
-                                {formatDate(item.due_date)}
-                              </span>
+                          <td>
+                            <span
+                              className={
+                                isOverdue
+                                  ? "text-danger fw-semibold"
+                                  : "text-secondary"
+                              }
+                            >
+                              {formatDate(item.due_date)}
+                            </span>
+                          </td>
 
-                            </td>
+                          {/* STATUS */}
 
-                            {/* STATUS */}
+                          <td>
+                            <StatusBadge
+                              status={item.status}
+                              overdue={isOverdue}
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
 
-                            <td>
-                              <StatusBadge
-                                status={item.status}
-                                overdue={isOverdue}
-                              />
-                            </td>
-
-                          </tr>
-                        );
-                      })}
-
-                    </tbody>
-
-                  </table>
-
-                </div>
-
-              )}
-
-            </div>
-
-          </div>
+            )}
+          </Panel>
 
           {/* =================================================
               FOOTER
           ================================================= */}
 
-          <div className="text-center text-secondary small py-4">
-
+          <div className="text-center text-secondary small py-2">
             ระบบจัดการยืม–คืนครุภัณฑ์
             <span className="mx-2">•</span>
             Faculty of Social Sciences
-
           </div>
 
         </div>
@@ -628,108 +533,96 @@ export default async function UserDashboardPage() {
           transition: margin-left 0.25s ease;
         }
 
-        .dashboard-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 20px;
-        }
-
         .dashboard-primary-btn {
           background: #6f42c1;
           border-color: #6f42c1;
           color: #fff;
-          transition: all 0.2s ease;
+          border-radius: 8px;
+          font-weight: 500;
         }
 
         .dashboard-primary-btn:hover {
           background: #5f35ad;
           border-color: #5f35ad;
           color: #fff;
-          transform: translateY(-1px);
         }
 
-        .profile-btn {
-          border-color: #6f42c1;
+        .dashboard-link {
+          font-size: 13px;
+          font-weight: 500;
           color: #6f42c1;
-          transition: all 0.2s ease;
+          text-decoration: none;
+          white-space: nowrap;
         }
 
-        .profile-btn:hover {
-          background: #6f42c1;
-          border-color: #6f42c1;
-          color: #fff;
+        .dashboard-link:hover {
+          color: #5f35ad;
         }
 
-        .account-icon {
-          width: 42px;
-          height: 42px;
-          border-radius: 12px;
+        .dashboard-empty-icon {
+          width: 48px;
+          height: 48px;
+          border-radius: 8px;
           display: flex;
           align-items: center;
           justify-content: center;
-          background: #eee8ff;
-          color: #6f42c1;
+          background: #f5f5f5;
+          color: #737373;
+          font-size: 20px;
         }
 
         .equipment-icon {
-          width: 46px;
-          height: 46px;
-          min-width: 46px;
-          border-radius: 12px;
+          width: 36px;
+          height: 36px;
+          min-width: 36px;
+          border-radius: 8px;
           display: flex;
           align-items: center;
           justify-content: center;
-          background: #f5f0ff;
+          background: #f3efff;
           color: #6f42c1;
         }
 
         .quick-menu-card {
-          border: 1px solid #e9ecef;
-          border-radius: 16px;
-          padding: 16px;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          border: 1px solid #e4e4e4;
+          border-radius: 10px;
+          padding: 12px 14px;
           height: 100%;
-          transition: all 0.2s ease;
           background: #fff;
+          transition: border-color 0.15s ease, background-color 0.15s ease;
         }
 
         .quick-menu-card:hover {
-          border-color: #d8c7f5;
-          transform: translateY(-2px);
-          box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+          border-color: #cdb9f0;
+          background: #fcfbff;
         }
 
         .quick-menu-icon {
-          width: 48px;
-          height: 48px;
-          min-width: 48px;
-          border-radius: 12px;
+          width: 36px;
+          height: 36px;
+          min-width: 36px;
+          border-radius: 8px;
           display: flex;
           align-items: center;
           justify-content: center;
-          background: #eee8ff;
+          background: #f3efff;
           color: #6f42c1;
         }
 
-        .table > :not(caption) > * > * {
-          padding: 14px 10px;
-        }
-
-        .table thead th {
-          white-space: nowrap;
-          font-size: 0.85rem;
-        }
-
-        .table tbody td {
-          border-color: #f0f0f0;
-        }
-
-        @media (max-width: 1199.98px) {
-
-          .dashboard-header {
-            align-items: flex-start;
-          }
-
+        .info-row-icon {
+          width: 32px;
+          height: 32px;
+          min-width: 32px;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: #f5f5f5;
+          color: #525252;
+          font-size: 14px;
         }
 
         @media (max-width: 991.98px) {
@@ -743,82 +636,13 @@ export default async function UserDashboardPage() {
 
         @media (max-width: 575.98px) {
 
-          .dashboard-header {
-            flex-direction: column;
-            align-items: stretch;
-          }
-
-          .dashboard-header .btn {
-            width: 100%;
-          }
-
-          .card-body {
-            padding: 18px !important;
-          }
-
-          .table {
-            min-width: 760px;
+          .dashboard-table {
+            min-width: 700px;
           }
 
         }
 
       `}</style>
-
-    </div>
-  );
-}
-
-/* =========================================================
-   DASHBOARD CARD
-========================================================= */
-
-function DashboardCard({
-  title,
-  value,
-  icon,
-  bg,
-  color,
-}: {
-  title: string;
-  value: number;
-  icon: string;
-  bg: string;
-  color: string;
-}) {
-  return (
-    <div className="card border-0 shadow-sm rounded-4 h-100">
-
-      <div className="card-body p-4">
-
-        <div className="d-flex align-items-center justify-content-between">
-
-          <div>
-
-            <div className="text-secondary mb-2">
-              {title}
-            </div>
-
-            <h3 className="fw-bold mb-0">
-              {value.toLocaleString("th-TH")}
-            </h3>
-
-          </div>
-
-          <div
-            className="rounded-4 d-flex align-items-center justify-content-center"
-            style={{
-              width: "55px",
-              height: "55px",
-              background: bg,
-              color: color,
-            }}
-          >
-            <i className={`bi ${icon} fs-4`}></i>
-          </div>
-
-        </div>
-
-      </div>
 
     </div>
   );
@@ -842,30 +666,20 @@ function QuickMenu({
   return (
     <Link
       href={href}
-      className="text-decoration-none"
+      className="text-decoration-none quick-menu-card"
     >
-      <div className="quick-menu-card">
+      <div className="quick-menu-icon">
+        <i className={`bi ${icon}`}></i>
+      </div>
 
-        <div className="d-flex align-items-center gap-3">
-
-          <div className="quick-menu-icon">
-            <i className={`bi ${icon} fs-5`}></i>
-          </div>
-
-          <div className="min-w-0">
-
-            <div className="fw-semibold text-dark">
-              {title}
-            </div>
-
-            <small className="text-secondary">
-              {description}
-            </small>
-
-          </div>
-
+      <div className="min-w-0">
+        <div className="fw-semibold text-dark small">
+          {title}
         </div>
 
+        <div className="text-secondary" style={{ fontSize: "12px" }}>
+          {description}
+        </div>
       </div>
     </Link>
   );
@@ -879,44 +693,37 @@ function InfoRow({
   icon,
   label,
   value,
+  last = false,
 }: {
   icon: string;
   label: string;
   value: string;
+  last?: boolean;
 }) {
   return (
-    <div className="d-flex align-items-center gap-3 border-bottom py-3">
-
-      <div
-        className="rounded-3 d-flex align-items-center justify-content-center"
-        style={{
-          width: "42px",
-          height: "42px",
-          minWidth: "42px",
-          background: "#f5f0ff",
-          color: "#6f42c1",
-        }}
-      >
+    <div
+      className={`d-flex align-items-center gap-3 py-2 ${
+        last ? "" : "border-bottom"
+      }`}
+    >
+      <div className="info-row-icon">
         <i className={`bi ${icon}`}></i>
       </div>
 
       <div className="overflow-hidden">
-
-        <small className="text-secondary d-block">
+        <small className="text-secondary d-block" style={{ fontSize: "12px" }}>
           {label}
         </small>
 
         <span
-          className="fw-semibold text-truncate d-block"
+          className="fw-semibold text-truncate d-block small"
           style={{
             maxWidth: "100%",
           }}
         >
           {value}
         </span>
-
       </div>
-
     </div>
   );
 }
@@ -934,10 +741,10 @@ function StatusBadge({
 }) {
   if (overdue && status !== "returned") {
     return (
-      <span className="badge rounded-pill bg-danger-subtle text-danger px-3 py-2">
-        <i className="bi bi-exclamation-circle me-1"></i>
+      <Pill tone="rose">
+        <i className="bi bi-exclamation-circle"></i>
         เกินกำหนด
-      </span>
+      </Pill>
     );
   }
 
@@ -945,57 +752,57 @@ function StatusBadge({
 
     case "pending":
       return (
-        <span className="badge rounded-pill bg-warning-subtle text-warning-emphasis px-3 py-2">
-          <i className="bi bi-hourglass-split me-1"></i>
+        <Pill tone="amber">
+          <i className="bi bi-hourglass-split"></i>
           รออนุมัติ
-        </span>
+        </Pill>
       );
 
     case "approved":
       return (
-        <span className="badge rounded-pill bg-primary-subtle text-primary px-3 py-2">
-          <i className="bi bi-check2-circle me-1"></i>
+        <Pill tone="purple">
+          <i className="bi bi-check2-circle"></i>
           อนุมัติแล้ว
-        </span>
+        </Pill>
       );
 
     case "borrowed":
       return (
-        <span className="badge rounded-pill bg-info-subtle text-info-emphasis px-3 py-2">
-          <i className="bi bi-box-seam me-1"></i>
+        <Pill tone="blue">
+          <i className="bi bi-box-seam"></i>
           กำลังยืม
-        </span>
+        </Pill>
       );
 
     case "returned":
       return (
-        <span className="badge rounded-pill bg-success-subtle text-success px-3 py-2">
-          <i className="bi bi-check-circle me-1"></i>
+        <Pill tone="emerald">
+          <i className="bi bi-check-circle"></i>
           คืนแล้ว
-        </span>
+        </Pill>
       );
 
     case "rejected":
       return (
-        <span className="badge rounded-pill bg-danger-subtle text-danger px-3 py-2">
-          <i className="bi bi-x-circle me-1"></i>
+        <Pill tone="rose">
+          <i className="bi bi-x-circle"></i>
           ไม่อนุมัติ
-        </span>
+        </Pill>
       );
 
     case "overdue":
       return (
-        <span className="badge rounded-pill bg-danger-subtle text-danger px-3 py-2">
-          <i className="bi bi-exclamation-circle me-1"></i>
+        <Pill tone="rose">
+          <i className="bi bi-exclamation-circle"></i>
           เกินกำหนด
-        </span>
+        </Pill>
       );
 
     default:
       return (
-        <span className="badge rounded-pill bg-secondary-subtle text-secondary px-3 py-2">
+        <Pill tone="neutral">
           ไม่ทราบสถานะ
-        </span>
+        </Pill>
       );
   }
 }

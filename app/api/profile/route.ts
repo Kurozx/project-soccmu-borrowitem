@@ -3,6 +3,9 @@ import bcrypt from "bcryptjs";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 
+const USER_TYPES = ["student", "teacher", "staff"] as const;
+type UserType = (typeof USER_TYPES)[number];
+
 // =====================================================
 // GET PROFILE
 // =====================================================
@@ -43,6 +46,8 @@ export async function GET() {
         username,
         email,
         role,
+        user_type,
+        avatar_url,
         created_at,
         updated_at
       FROM users
@@ -127,7 +132,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          message: "กรุณากรอก Username และ Email ให้ครบ",
+          message: "กรุณากรอกชื่อผู้ใช้และอีเมลให้ครบ",
         },
         {
           status: 400,
@@ -139,12 +144,63 @@ export async function PATCH(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          message: "Username ต้องมีอย่างน้อย 3 ตัวอักษร",
+          message: "ชื่อผู้ใช้ต้องมีอย่างน้อย 3 ตัวอักษร",
         },
         {
           status: 400,
         }
       );
+    }
+
+    // =================================================
+    // ประเภทผู้ใช้ (เฉพาะ role = user, admin เป็น NULL)
+    // =================================================
+    const [roleRows] = await db.execute(
+      `
+      SELECT role, user_type
+      FROM users
+      WHERE id = ?
+      LIMIT 1
+      `,
+      [userId]
+    );
+
+    if (!Array.isArray(roleRows) || roleRows.length === 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "ไม่พบข้อมูลผู้ใช้งาน",
+        },
+        {
+          status: 404,
+        }
+      );
+    }
+
+    const currentUser = roleRows[0] as {
+      role: string;
+      user_type: UserType | null;
+    };
+
+    // admin ไม่แก้ไขประเภทผู้ใช้ (คงค่าเดิมไว้)
+    let userType: UserType | null = currentUser.user_type;
+
+    if (currentUser.role !== "admin") {
+      const rawUserType = String(body.userType ?? "").trim();
+
+      if (!USER_TYPES.includes(rawUserType as UserType)) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "กรุณาเลือกประเภทผู้ใช้",
+          },
+          {
+            status: 400,
+          }
+        );
+      }
+
+      userType = rawUserType as UserType;
     }
 
     // =================================================
@@ -168,7 +224,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          message: "Username หรือ Email นี้ถูกใช้งานแล้ว",
+          message: "ชื่อผู้ใช้หรืออีเมลนี้ถูกใช้งานแล้ว",
         },
         {
           status: 409,
@@ -185,10 +241,11 @@ export async function PATCH(request: Request) {
       UPDATE users
       SET
         username = ?,
-        email = ?
+        email = ?,
+        user_type = ?
       WHERE id = ?
       `,
-      [username, email, userId]
+      [username, email, userType, userId]
     );
 
     return NextResponse.json({

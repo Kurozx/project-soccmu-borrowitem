@@ -4,6 +4,21 @@ import { useState } from "react";
 import Link from "next/link";
 import Swal from "sweetalert2";
 import UserNavbar from "@/app/components/UserNavbar";
+import {
+  PageHeader,
+  Panel,
+  Pill,
+  StatCard,
+  type Tone,
+} from "@/app/components/ui";
+import BorrowingPhotos, {
+  PhotoPicker,
+  photoFailureText,
+  releasePhotos,
+  uploadPhotos,
+  type PickedPhoto,
+  type UploadProgress,
+} from "@/app/components/BorrowingPhotos";
 
 type BorrowingItem = {
   id: number;
@@ -42,6 +57,17 @@ export default function BorrowingClient({
     useState<BorrowingItem | null>(null);
 
   const [isReturning, setIsReturning] = useState(false);
+
+  // รูปสภาพครุภัณฑ์ตอนคืน (แนบก่อนยืนยัน อัปโหลดหลังคืนสำเร็จ)
+  const [returnPhotos, setReturnPhotos] = useState<PickedPhoto[]>([]);
+  const [uploadProgress, setUploadProgress] =
+    useState<UploadProgress | null>(null);
+
+  const closeReturnModal = () => {
+    releasePhotos(returnPhotos);
+    setReturnPhotos([]);
+    setReturningItem(null);
+  };
 
   // =========================
   // Format วันที่
@@ -102,12 +128,24 @@ export default function BorrowingClient({
         )
       );
 
-      setReturningItem(null);
+      const photoSummary = await uploadPhotos(
+        returningItem.id,
+        "return",
+        returnPhotos,
+        setUploadProgress
+      );
+
+      setUploadProgress(null);
+      closeReturnModal();
+
+      const photoFailure = photoFailureText(photoSummary);
 
       await Swal.fire({
-        icon: "success",
+        icon: photoFailure ? "warning" : "success",
         title: "คืนครุภัณฑ์สำเร็จ",
-        text: "ระบบบันทึกการคืนครุภัณฑ์เรียบร้อยแล้ว",
+        text: photoFailure
+          ? `ระบบบันทึกการคืนครุภัณฑ์เรียบร้อยแล้ว ${photoFailure}`
+          : "ระบบบันทึกการคืนครุภัณฑ์เรียบร้อยแล้ว",
         confirmButtonText: "ตกลง",
         confirmButtonColor: "#6f42c1",
       });
@@ -126,6 +164,7 @@ export default function BorrowingClient({
       });
     } finally {
       setIsReturning(false);
+      setUploadProgress(null);
     }
   };
 
@@ -159,24 +198,24 @@ export default function BorrowingClient({
     }
   };
 
-  const getStatusClass = (
+  const getStatusTone = (
     status: BorrowingItem["status"]
-  ) => {
+  ): Tone => {
     switch (status) {
       case "approved":
-        return "status-approved";
+        return "purple";
 
       case "borrowed":
-        return "status-borrowed";
+        return "blue";
 
       case "overdue":
-        return "status-overdue";
+        return "rose";
 
       case "pending":
-        return "status-pending";
+        return "amber";
 
       default:
-        return "status-default";
+        return "neutral";
     }
   };
 
@@ -209,92 +248,51 @@ export default function BorrowingClient({
           MAIN CONTENT
       ========================= */}
       <main className="borrowing-main-content">
-        <div className="borrowing-page">
-          {/* =========================
-              Header
-          ========================= */}
-          <div className="page-header">
-            <div>
-              <div className="breadcrumb-text">
-                หน้าหลัก / รายการยืมของฉัน
-              </div>
-
-              <h1>
-                <i className="bi bi-journal-check me-2"></i>
-                รายการยืมของฉัน
-              </h1>
-
-              <p>
-                ตรวจสอบรายการครุภัณฑ์ที่กำลังยืม
-                และดำเนินการคืนครุภัณฑ์
-              </p>
-            </div>
-
-            <Link
-              href="/equipment"
-              className="btn btn-purple"
-            >
-              <i className="bi bi-plus-circle me-2"></i>
-              ยืมครุภัณฑ์เพิ่มเติม
-            </Link>
-          </div>
+        <div className="ui-page">
+          <PageHeader
+            eyebrow="การยืม"
+            title="รายการยืมของฉัน"
+            description="ตรวจสอบรายการครุภัณฑ์ที่กำลังยืม และดำเนินการคืนครุภัณฑ์"
+            actions={
+              <Link
+                href="/equipment"
+                className="btn btn-primary btn-sm"
+              >
+                <i className="bi bi-plus-circle me-2"></i>
+                ยืมครุภัณฑ์เพิ่มเติม
+              </Link>
+            }
+          />
 
           {/* =========================
               Summary
           ========================= */}
-          <div className="row g-4 mb-4">
+          <div className="row g-3">
             <div className="col-12 col-md-4">
-              <div className="summary-card">
-                <div className="summary-icon purple">
-                  <i className="bi bi-box-seam"></i>
-                </div>
-
-                <div>
-                  <div className="summary-label">
-                    รายการที่กำลังยืม
-                  </div>
-
-                  <div className="summary-value">
-                    {totalItems}
-                  </div>
-                </div>
-              </div>
+              <StatCard
+                label="รายการที่กำลังยืม"
+                value={totalItems}
+                icon="bi-box-seam"
+                tone="purple"
+              />
             </div>
 
             <div className="col-12 col-md-4">
-              <div className="summary-card">
-                <div className="summary-icon blue">
-                  <i className="bi bi-clock-history"></i>
-                </div>
-
-                <div>
-                  <div className="summary-label">
-                    กำลังยืม
-                  </div>
-
-                  <div className="summary-value">
-                    {borrowedItems}
-                  </div>
-                </div>
-              </div>
+              <StatCard
+                label="กำลังยืม"
+                value={borrowedItems}
+                icon="bi-clock-history"
+                tone="blue"
+              />
             </div>
 
             <div className="col-12 col-md-4">
-              <div className="summary-card">
-                <div className="summary-icon red">
-                  <i className="bi bi-exclamation-triangle"></i>
-                </div>
-
-                <div>
-                  <div className="summary-label">
-                    เกินกำหนด
-                  </div>
-
-                  <div className="summary-value">
-                    {overdueItems}
-                  </div>
-                </div>
-              </div>
+              <StatCard
+                label="เกินกำหนด"
+                value={overdueItems}
+                icon="bi-exclamation-triangle"
+                tone="rose"
+              />
             </div>
           </div>
 
@@ -302,75 +300,60 @@ export default function BorrowingClient({
               Warning
           ========================= */}
           {overdueItems > 0 && (
-            <div className="alert alert-danger custom-alert mb-4">
-              <div className="d-flex align-items-start">
-                <i className="bi bi-exclamation-triangle-fill fs-4 me-3"></i>
+            <div className="overdue-alert">
+              <i className="bi bi-exclamation-triangle-fill"></i>
+
+              <div>
+                <strong>
+                  มีรายการครุภัณฑ์เกินกำหนด
+                </strong>
 
                 <div>
-                  <strong>
-                    มีรายการครุภัณฑ์เกินกำหนด
-                  </strong>
-
-                  <div className="mt-1">
-                    กรุณาดำเนินการคืนครุภัณฑ์
-                    ที่เกินกำหนดโดยเร็วที่สุด
-                  </div>
+                  กรุณาดำเนินการคืนครุภัณฑ์
+                  ที่เกินกำหนดโดยเร็วที่สุด
                 </div>
               </div>
             </div>
           )}
 
           {/* =========================
-              Empty State
+              List
           ========================= */}
-          {items.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-icon">
-                <i className="bi bi-inbox"></i>
-              </div>
-
-              <h3>
-                ไม่มีรายการที่กำลังยืม
-              </h3>
-
-              <p>
-                ขณะนี้คุณไม่มีรายการครุภัณฑ์ที่กำลังยืม
-              </p>
-
-              <Link
-                href="/equipment"
-                className="btn btn-purple"
-              >
-                <i className="bi bi-search me-2"></i>
-                ดูครุภัณฑ์
-              </Link>
-            </div>
-          ) : (
-            <>
-              {/* =========================
-                  Section Title
-              ========================= */}
-              <div className="section-title">
-                <div>
-                  <h2>
-                    <i className="bi bi-list-check me-2"></i>
-                    ครุภัณฑ์ที่กำลังยืม
-                  </h2>
-
-                  <p>
-                    รายการครุภัณฑ์ที่อยู่ภายใต้บัญชีของคุณ
-                  </p>
+          <Panel
+            title="ครุภัณฑ์ที่กำลังยืม"
+            description="รายการครุภัณฑ์ที่อยู่ภายใต้บัญชีของคุณ"
+            action={
+              items.length > 0 ? (
+                <Pill tone="purple">
+                  {items.length} รายการ
+                </Pill>
+              ) : undefined
+            }
+          >
+            {items.length === 0 ? (
+              <div className="empty-state">
+                <div className="empty-icon">
+                  <i className="bi bi-inbox"></i>
                 </div>
 
-                <span className="count-badge">
-                  {items.length} รายการ
-                </span>
-              </div>
+                <h3>
+                  ไม่มีรายการที่กำลังยืม
+                </h3>
 
-              {/* =========================
-                  Cards
-              ========================= */}
-              <div className="row g-4">
+                <p>
+                  ขณะนี้คุณไม่มีรายการครุภัณฑ์ที่กำลังยืม
+                </p>
+
+                <Link
+                  href="/equipment"
+                  className="btn btn-primary btn-sm"
+                >
+                  <i className="bi bi-search me-2"></i>
+                  ดูครุภัณฑ์
+                </Link>
+              </div>
+            ) : (
+              <div className="row g-3">
                 {items.map((item) => {
                   const isOverdue =
                     item.status === "overdue" ||
@@ -399,13 +382,13 @@ export default function BorrowingClient({
                             <i className="bi bi-laptop"></i>
                           </div>
 
-                          <span
-                            className={`status-badge ${getStatusClass(
+                          <Pill
+                            tone={getStatusTone(
                               item.status
-                            )}`}
+                            )}
                           >
                             {getStatusText(item.status)}
-                          </span>
+                          </Pill>
                         </div>
 
                         {/* Equipment */}
@@ -517,7 +500,7 @@ export default function BorrowingClient({
                         <div className="card-actions">
                           <button
                             type="button"
-                            className="btn btn-detail"
+                            className="btn btn-sm btn-outline-secondary"
                             onClick={() =>
                               setSelectedItem(item)
                             }
@@ -528,7 +511,7 @@ export default function BorrowingClient({
 
                           <button
                             type="button"
-                            className="btn btn-return"
+                            className="btn btn-sm btn-primary"
                             onClick={() =>
                               setReturningItem(item)
                             }
@@ -542,8 +525,8 @@ export default function BorrowingClient({
                   );
                 })}
               </div>
-            </>
-          )}
+            )}
+          </Panel>
 
           {/* =========================
               Footer
@@ -577,10 +560,7 @@ export default function BorrowingClient({
           >
             <div className="modal-header-custom">
               <div>
-                <h3>
-                  <i className="bi bi-info-circle me-2"></i>
-                  รายละเอียดการยืม
-                </h3>
+                <h3>รายละเอียดการยืม</h3>
 
                 <small>
                   {selectedItem.borrowId}
@@ -664,12 +644,18 @@ export default function BorrowingClient({
                   {selectedItem.purpose}
                 </p>
               </div>
+
+              <BorrowingPhotos
+                borrowingId={selectedItem.id}
+                uploadKinds={["borrow"]}
+                allowDelete
+              />
             </div>
 
             <div className="modal-footer-custom">
               <button
                 type="button"
-                className="btn btn-secondary"
+                className="btn btn-sm btn-outline-secondary"
                 onClick={() =>
                   setSelectedItem(null)
                 }
@@ -679,7 +665,7 @@ export default function BorrowingClient({
 
               <button
                 type="button"
-                className="btn btn-return"
+                className="btn btn-sm btn-primary"
                 onClick={() => {
                   setSelectedItem(null);
                   setReturningItem(selectedItem);
@@ -702,7 +688,7 @@ export default function BorrowingClient({
           style={{ zIndex: 2100 }}
           onClick={() => {
             if (!isReturning) {
-              setReturningItem(null);
+              closeReturnModal();
             }
           }}
         >
@@ -737,21 +723,28 @@ export default function BorrowingClient({
               และเพิ่มจำนวนครุภัณฑ์ที่พร้อมใช้งาน
             </div>
 
+            <div className="mt-3">
+              <PhotoPicker
+                value={returnPhotos}
+                onChange={setReturnPhotos}
+                disabled={isReturning}
+                progress={uploadProgress}
+              />
+            </div>
+
             <div className="modal-actions">
               <button
                 type="button"
-                className="btn btn-secondary"
+                className="btn btn-outline-secondary"
                 disabled={isReturning}
-                onClick={() =>
-                  setReturningItem(null)
-                }
+                onClick={closeReturnModal}
               >
                 ยกเลิก
               </button>
 
               <button
                 type="button"
-                className="btn btn-return"
+                className="btn btn-primary"
                 disabled={isReturning}
                 onClick={handleReturn}
               >
@@ -786,151 +779,33 @@ export default function BorrowingClient({
           margin-left: 270px;
           min-height: 100vh;
           transition: margin-left 0.25s ease;
-          background: #f8f7fc;
-        }
-
-        .borrowing-page {
-          min-height: 100vh;
-          padding: 32px;
-        }
-
-        /* =========================
-           HEADER
-        ========================= */
-        .page-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-end;
-          gap: 20px;
-          margin-bottom: 30px;
-        }
-
-        .breadcrumb-text {
-          color: #8b85a3;
-          font-size: 14px;
-          margin-bottom: 8px;
-        }
-
-        .page-header h1 {
-          color: #2d2540;
-          font-size: 32px;
-          font-weight: 700;
-          margin-bottom: 8px;
-        }
-
-        .page-header p {
-          color: #77718a;
-          margin: 0;
-        }
-
-        .btn-purple {
-          background: #6f42c1;
-          color: #fff;
-          border: none;
-          padding: 11px 20px;
-          border-radius: 10px;
-          font-weight: 600;
-          text-decoration: none;
-          white-space: nowrap;
-          transition: all 0.2s ease;
-        }
-
-        .btn-purple:hover {
-          background: #5d35a5;
-          color: #fff;
-          transform: translateY(-1px);
-        }
-
-        /* =========================
-           SUMMARY
-        ========================= */
-        .summary-card {
-          background: #fff;
-          border-radius: 16px;
-          padding: 22px;
-          display: flex;
-          align-items: center;
-          gap: 16px;
-          box-shadow: 0 4px 20px rgba(43, 32, 68, 0.06);
-          border: 1px solid #eeeaf7;
-        }
-
-        .summary-icon {
-          width: 52px;
-          height: 52px;
-          border-radius: 14px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 23px;
-        }
-
-        .summary-icon.purple {
-          background: #eee7fb;
-          color: #6f42c1;
-        }
-
-        .summary-icon.blue {
-          background: #e8f1ff;
-          color: #3976d3;
-        }
-
-        .summary-icon.red {
-          background: #fdeaea;
-          color: #dc3545;
-        }
-
-        .summary-label {
-          color: #77718a;
-          font-size: 14px;
-          margin-bottom: 3px;
-        }
-
-        .summary-value {
-          color: #302642;
-          font-size: 28px;
-          font-weight: 700;
+          background: #fafafa;
         }
 
         /* =========================
            ALERT
         ========================= */
-        .custom-alert {
-          border-radius: 14px;
-          border: none;
-          padding: 18px 20px;
-        }
-
-        /* =========================
-           SECTION
-        ========================= */
-        .section-title {
+        .overdue-alert {
           display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 20px;
-        }
-
-        .section-title h2 {
-          font-size: 22px;
-          font-weight: 700;
-          color: #302642;
-          margin: 0 0 5px;
-        }
-
-        .section-title p {
-          color: #817a94;
-          margin: 0;
+          align-items: flex-start;
+          gap: 12px;
+          padding: 14px 16px;
+          border: 1px solid #fecdd3;
+          border-radius: 12px;
+          background: #fff1f2;
+          color: #9f1239;
           font-size: 14px;
         }
 
-        .count-badge {
-          background: #eee7fb;
-          color: #6f42c1;
-          padding: 8px 14px;
-          border-radius: 20px;
-          font-size: 13px;
-          font-weight: 600;
+        .overdue-alert > i {
+          font-size: 18px;
+          color: #e11d48;
+          line-height: 1.3;
+        }
+
+        .overdue-alert strong {
+          display: block;
+          margin-bottom: 2px;
         }
 
         /* =========================
@@ -938,155 +813,103 @@ export default function BorrowingClient({
         ========================= */
         .borrowing-card {
           background: #fff;
-          border-radius: 18px;
-          padding: 22px;
+          border-radius: 12px;
+          padding: 18px;
           height: 100%;
-          border: 1px solid #eeeaf7;
-          box-shadow: 0 5px 20px rgba(43, 32, 68, 0.06);
-          transition: all 0.2s ease;
+          border: 1px solid #e4e4e4;
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+          transition: box-shadow 0.15s ease;
         }
 
         .borrowing-card:hover {
-          transform: translateY(-3px);
-          box-shadow: 0 10px 28px rgba(43, 32, 68, 0.1);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
         }
 
         .card-overdue {
-          border-color: #f2b8be;
+          border-color: #fecdd3;
         }
 
         .card-top {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 18px;
+          margin-bottom: 14px;
         }
 
         .equipment-icon {
-          width: 48px;
-          height: 48px;
-          background: #eee7fb;
+          width: 40px;
+          height: 40px;
+          background: #f3efff;
           color: #6f42c1;
-          border-radius: 13px;
+          border-radius: 8px;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 22px;
-        }
-
-        .status-badge {
-          padding: 6px 11px;
-          border-radius: 20px;
-          font-size: 12px;
-          font-weight: 600;
-        }
-
-        .status-approved {
-          background: #e8f5e9;
-          color: #2e7d32;
-        }
-
-        .status-borrowed {
-          background: #e8f1ff;
-          color: #3976d3;
-        }
-
-        .status-overdue {
-          background: #fdeaea;
-          color: #dc3545;
-        }
-
-        .status-pending {
-          background: #fff3cd;
-          color: #856404;
-        }
-
-        .status-default {
-          background: #f0eef5;
-          color: #6f687b;
+          font-size: 18px;
         }
 
         .equipment-info h3 {
-          font-size: 19px;
-          font-weight: 700;
-          color: #302642;
-          margin-bottom: 7px;
+          font-size: 15px;
+          font-weight: 600;
+          color: #171717;
+          margin-bottom: 6px;
         }
 
         .equipment-code,
         .category {
-          font-size: 13px;
-          color: #7b748b;
-          margin-bottom: 4px;
+          font-size: 12px;
+          color: #737373;
+          margin-bottom: 2px;
         }
 
         .info-list {
-          margin-top: 18px;
-          padding-top: 16px;
-          border-top: 1px solid #eeeaf7;
+          margin-top: 14px;
+          padding-top: 14px;
+          border-top: 1px solid #f0f0f0;
           display: grid;
           grid-template-columns: 1fr 1fr;
           gap: 12px;
-        }
-
-        .info-box {
-          min-width: 0;
-        }
-
-        .info-label {
-          color: #928ba1;
-          font-size: 11px;
-          margin-bottom: 3px;
-        }
-
-        .info-value {
-          color: #393248;
-          font-size: 13px;
-          font-weight: 600;
-          word-break: break-word;
-        }
-
-        .info-value.danger {
-          color: #dc3545;
         }
 
         /* =========================
            DAYS
         ========================= */
         .days-left {
-          margin-top: 17px;
-          padding: 12px 14px;
-          border-radius: 11px;
-          background: #f3f0fa;
-          color: #6f42c1;
+          margin-top: 14px;
+          padding: 10px 12px;
+          border-radius: 8px;
+          background: #f5f5f5;
+          color: #404040;
           display: flex;
           align-items: center;
           gap: 10px;
         }
 
         .days-left > i {
-          font-size: 19px;
+          font-size: 16px;
         }
 
         .days-left strong {
           display: block;
           font-size: 13px;
+          font-weight: 600;
         }
 
         .days-left small {
           display: block;
           font-size: 11px;
-          margin-top: 2px;
+          margin-top: 1px;
+          opacity: 0.85;
         }
 
         .days-overdue {
-          background: #fdeaea;
-          color: #dc3545;
+          background: #fff1f2;
+          color: #e11d48;
         }
 
         .days-urgent {
-          background: #fff4df;
-          color: #b36b00;
+          background: #fffbeb;
+          color: #b45309;
         }
 
         /* =========================
@@ -1095,77 +918,42 @@ export default function BorrowingClient({
         .card-actions {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          gap: 9px;
-          margin-top: 18px;
-        }
-
-        .btn-detail,
-        .btn-return {
-          border-radius: 9px;
-          padding: 10px 12px;
-          font-size: 13px;
-          font-weight: 600;
-        }
-
-        .btn-detail {
-          background: #f1eef7;
-          border: none;
-          color: #5d536e;
-        }
-
-        .btn-detail:hover {
-          background: #e5def2;
-          color: #4c4260;
-        }
-
-        .btn-return {
-          background: #6f42c1;
-          border: none;
-          color: #fff;
-        }
-
-        .btn-return:hover {
-          background: #5d35a5;
-          color: #fff;
-        }
-
-        .btn-return:disabled {
-          opacity: 0.65;
-          cursor: not-allowed;
+          gap: 8px;
+          margin-top: 14px;
         }
 
         /* =========================
            EMPTY
         ========================= */
         .empty-state {
-          background: #fff;
-          border-radius: 20px;
-          padding: 70px 20px;
+          padding: 48px 20px;
           text-align: center;
-          box-shadow: 0 5px 20px rgba(43, 32, 68, 0.05);
         }
 
         .empty-icon {
-          width: 80px;
-          height: 80px;
-          background: #eee7fb;
-          color: #6f42c1;
-          border-radius: 50%;
+          width: 48px;
+          height: 48px;
+          background: #f5f5f5;
+          color: #737373;
+          border-radius: 12px;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 34px;
-          margin: 0 auto 20px;
+          font-size: 22px;
+          margin: 0 auto 14px;
         }
 
         .empty-state h3 {
-          color: #302642;
-          font-weight: 700;
+          color: #171717;
+          font-size: 15px;
+          font-weight: 600;
+          margin-bottom: 4px;
         }
 
         .empty-state p {
-          color: #817a94;
-          margin-bottom: 20px;
+          color: #737373;
+          font-size: 13px;
+          margin-bottom: 16px;
         }
 
         /* =========================
@@ -1174,7 +962,7 @@ export default function BorrowingClient({
         .modal-backdrop-custom {
           position: fixed;
           inset: 0;
-          background: rgba(32, 25, 45, 0.58);
+          background: rgba(0, 0, 0, 0.45);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -1187,80 +975,89 @@ export default function BorrowingClient({
           max-height: calc(100vh - 40px);
           overflow-y: auto;
           background: #fff;
-          border-radius: 20px;
-          box-shadow: 0 20px 70px rgba(0, 0, 0, 0.2);
+          border: 1px solid #e4e4e4;
+          border-radius: 12px;
+          box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
         }
 
         .modal-header-custom {
-          padding: 20px 22px;
+          padding: 16px 20px;
           display: flex;
           align-items: center;
           justify-content: space-between;
-          border-bottom: 1px solid #eeeaf7;
+          border-bottom: 1px solid #e4e4e4;
         }
 
         .modal-header-custom h3 {
           margin: 0;
-          color: #302642;
-          font-size: 19px;
+          color: #171717;
+          font-size: 16px;
+          font-weight: 600;
         }
 
         .modal-header-custom small {
-          color: #8b8497;
+          color: #737373;
+          font-size: 12px;
         }
 
         .modal-close {
-          width: 36px;
-          height: 36px;
+          width: 32px;
+          height: 32px;
           border: none;
-          border-radius: 9px;
-          background: #f1eef7;
-          color: #665c75;
+          border-radius: 8px;
+          background: transparent;
+          color: #737373;
+        }
+
+        .modal-close:hover {
+          background: #f5f5f5;
+          color: #171717;
         }
 
         .modal-body-custom {
-          padding: 24px;
+          padding: 20px;
         }
 
         .modal-footer-custom {
-          padding: 16px 22px;
-          border-top: 1px solid #eeeaf7;
+          padding: 14px 20px;
+          border-top: 1px solid #e4e4e4;
           display: flex;
           justify-content: flex-end;
-          gap: 10px;
+          gap: 8px;
         }
 
         .detail-equipment {
           display: flex;
           align-items: center;
-          gap: 15px;
-          padding: 15px;
-          background: #f7f5fb;
-          border-radius: 14px;
+          gap: 14px;
+          padding: 14px;
+          border: 1px solid #e4e4e4;
+          border-radius: 12px;
           margin-bottom: 20px;
         }
 
         .detail-icon {
-          width: 52px;
-          height: 52px;
-          border-radius: 13px;
-          background: #eee7fb;
+          width: 40px;
+          height: 40px;
+          border-radius: 8px;
+          background: #f3efff;
           color: #6f42c1;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 22px;
+          font-size: 18px;
         }
 
         .detail-equipment h4 {
-          margin: 0 0 4px;
-          font-size: 17px;
-          color: #302642;
+          margin: 0 0 2px;
+          font-size: 15px;
+          font-weight: 600;
+          color: #171717;
         }
 
         .detail-equipment span {
-          color: #817a94;
-          font-size: 13px;
+          color: #737373;
+          font-size: 12px;
         }
 
         .detail-grid {
@@ -1271,19 +1068,21 @@ export default function BorrowingClient({
 
         .purpose-box {
           margin-top: 20px;
-          background: #f8f7fc;
-          padding: 16px;
-          border-radius: 12px;
+          background: #fafafa;
+          border: 1px solid #f0f0f0;
+          padding: 14px;
+          border-radius: 8px;
         }
 
         .purpose-box strong {
-          color: #433953;
-          font-size: 14px;
+          color: #171717;
+          font-size: 13px;
+          font-weight: 600;
         }
 
         .purpose-box p {
-          margin: 8px 0 0;
-          color: #6f687b;
+          margin: 6px 0 0;
+          color: #525252;
           font-size: 14px;
           line-height: 1.6;
         }
@@ -1292,47 +1091,50 @@ export default function BorrowingClient({
            RETURN MODAL
         ========================= */
         .return-modal {
-          max-width: 450px;
+          max-width: 440px;
           text-align: center;
-          padding: 35px 30px 30px;
+          padding: 28px 24px 24px;
         }
 
         .return-icon {
-          width: 70px;
-          height: 70px;
-          margin: 0 auto 18px;
-          border-radius: 50%;
-          background: #eee7fb;
+          width: 48px;
+          height: 48px;
+          margin: 0 auto 14px;
+          border-radius: 12px;
+          background: #f3efff;
           color: #6f42c1;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 30px;
+          font-size: 22px;
         }
 
         .return-modal h3 {
-          color: #302642;
-          font-size: 21px;
-          font-weight: 700;
-          margin-bottom: 12px;
+          color: #171717;
+          font-size: 18px;
+          font-weight: 600;
+          margin-bottom: 10px;
         }
 
         .return-modal p {
-          color: #77718a;
-          margin-bottom: 3px;
+          color: #737373;
+          font-size: 14px;
+          margin-bottom: 2px;
         }
 
         .return-equipment-name {
-          color: #6f42c1;
-          font-size: 17px;
+          color: #171717;
+          font-size: 16px;
+          font-weight: 600;
         }
 
         .confirm-note {
-          margin-top: 18px;
-          background: #f5f1fc;
-          color: #6d6380;
-          border-radius: 10px;
-          padding: 12px;
+          margin-top: 16px;
+          background: #fafafa;
+          border: 1px solid #f0f0f0;
+          color: #525252;
+          border-radius: 8px;
+          padding: 10px 12px;
           font-size: 12px;
           text-align: left;
         }
@@ -1340,8 +1142,8 @@ export default function BorrowingClient({
         .modal-actions {
           display: flex;
           justify-content: center;
-          gap: 10px;
-          margin-top: 24px;
+          gap: 8px;
+          margin-top: 20px;
         }
 
         .modal-actions .btn {
@@ -1352,13 +1154,13 @@ export default function BorrowingClient({
            FOOTER
         ========================= */
         .borrowing-footer {
-          margin-top: 50px;
-          padding: 24px 0 10px;
-          border-top: 1px solid #e7e2ef;
+          margin-top: 12px;
+          padding-top: 16px;
+          border-top: 1px solid #e4e4e4;
           display: flex;
           justify-content: space-between;
           gap: 20px;
-          color: #8b8497;
+          color: #737373;
           font-size: 12px;
         }
 
@@ -1370,37 +1172,9 @@ export default function BorrowingClient({
             margin-left: 0 !important;
             padding-top: 64px;
           }
-
-          .borrowing-page {
-            padding: 22px 16px;
-          }
-
-          .page-header {
-            align-items: flex-start;
-            flex-direction: column;
-          }
-
-          .page-header h1 {
-            font-size: 26px;
-          }
-
-          .btn-purple {
-            width: 100%;
-            text-align: center;
-          }
         }
 
         @media (max-width: 575.98px) {
-          .summary-card {
-            padding: 17px;
-          }
-
-          .section-title {
-            align-items: flex-start;
-            gap: 10px;
-            flex-direction: column;
-          }
-
           .info-list {
             grid-template-columns: 1fr;
           }
@@ -1415,10 +1189,6 @@ export default function BorrowingClient({
 
           .borrowing-footer {
             flex-direction: column;
-          }
-
-          .return-modal {
-            padding: 28px 20px 24px;
           }
         }
       `}</style>
@@ -1455,6 +1225,29 @@ function InfoBox({
       >
         {value}
       </div>
+
+      <style jsx>{`
+        .info-box {
+          min-width: 0;
+        }
+
+        .info-label {
+          color: #737373;
+          font-size: 11px;
+          margin-bottom: 2px;
+        }
+
+        .info-value {
+          color: #171717;
+          font-size: 13px;
+          font-weight: 500;
+          word-break: break-word;
+        }
+
+        .info-value.danger {
+          color: #e11d48;
+        }
+      `}</style>
     </div>
   );
 }
