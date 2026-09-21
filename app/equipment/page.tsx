@@ -108,7 +108,7 @@ export default async function EquipmentPage() {
     imageUrl:
       item.image_url || null,
 
-    // ใช้เป็นรูปสำรองเมื่อครุภัณฑ์ยังไม่มีรูป
+    // ใช้เป็นรูปสำรองเมื่อครุภัณฑ์ยังไม่มีรูป Test
     categoryImageUrl:
       item.category_image_url || null,
   }));
