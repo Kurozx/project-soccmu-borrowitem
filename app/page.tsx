@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { getSession } from "next-auth/react";
+import type { Session } from "next-auth";
 
 import { Panel, StatCard, type Tone } from "@/app/components/ui";
 
@@ -24,6 +26,54 @@ type HomeStats = {
 // =====================================================
 
 export default function Home() {
+  const [currentUser, setCurrentUser] = useState<Session["user"] | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    let requestId = 0;
+
+    const loadUser = async () => {
+      const id = ++requestId;
+      try {
+        const session = await getSession();
+        let user = session?.user ?? null;
+
+        if (user) {
+          // Read the latest name after profile edits; retain the session if unavailable.
+          try {
+            const response = await fetch("/api/profile", { cache: "no-store" });
+            if (response.status === 401) {
+              user = null;
+            } else if (response.ok) {
+              const result = await response.json();
+              if (result.success && result.data?.username) {
+                user = { ...user, name: result.data.username };
+              }
+            }
+          } catch {
+            // The authenticated session still supplies the account name.
+          }
+        }
+
+        if (!cancelled && id === requestId) setCurrentUser(user);
+      } catch (error) {
+        console.error("LOAD HOME SESSION ERROR:", error);
+      } finally {
+        if (!cancelled && id === requestId) setAuthLoading(false);
+      }
+    };
+
+    void loadUser();
+    window.addEventListener("focus", loadUser);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", loadUser);
+    };
+  }, []);
+
+  const dashboardHref = currentUser?.role === "admin" ? "/admin/dashboard" : "/dashboard";
+  const equipmentHref = currentUser ? "/equipment" : "/login";
   // =====================================================
   // STATE
   // =====================================================
@@ -166,22 +216,39 @@ export default function Home() {
               หน้าหลัก
             </Link>
 
-            <Link href="/login" className="home-nav-link">
+            <Link href={equipmentHref} className="home-nav-link">
               ครุภัณฑ์
             </Link>
 
             <span className="home-nav-sep" aria-hidden="true" />
 
-            <Link
-              href="/register"
-              className="btn btn-outline-secondary home-btn d-none d-sm-inline-flex"
-            >
-              สมัครสมาชิก
-            </Link>
+            {authLoading ? (
+              <span className="home-account-loading" role="status">กำลังตรวจสอบบัญชี…</span>
+            ) : currentUser ? (
+              <>
+                <Link href="/profile" className="home-account" title={currentUser.name || "ผู้ใช้งาน"}>
+                  <i className="bi bi-person-circle" aria-hidden="true" />
+                  <span className="home-account-name">{currentUser.name || "ผู้ใช้งาน"}</span>
+                </Link>
+                <Link href={dashboardHref} className="btn btn-primary home-btn">
+                  <i className="bi bi-grid me-2" aria-hidden="true" />
+                  ไป Dashboard
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/register"
+                  className="btn btn-outline-secondary home-btn d-none d-sm-inline-flex"
+                >
+                  สมัครสมาชิก
+                </Link>
 
-            <Link href="/login" className="btn btn-primary home-btn">
-              เข้าสู่ระบบ
-            </Link>
+                <Link href="/login" className="btn btn-primary home-btn">
+                  เข้าสู่ระบบ
+                </Link>
+              </>
+            )}
           </nav>
         </div>
       </header>
@@ -341,7 +408,7 @@ export default function Home() {
               <div className="home-footer-title">เมนู</div>
               <div className="home-footer-links">
                 <Link href="/">หน้าหลัก</Link>
-                <Link href="/login">ครุภัณฑ์</Link>
+                <Link href={equipmentHref}>ครุภัณฑ์</Link>
               </div>
             </div>
 
@@ -528,6 +595,55 @@ const HOME_STYLES = `
     font-size: 14px;
     color: #737373;
     text-decoration: none;
+  }
+
+  .home-account {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    color: #6f42c1;
+    text-decoration: none;
+    font-size: 14px;
+  }
+
+  .home-account-name {
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .home-account-loading {
+    color: #737373;
+    font-size: 13px;
+  }
+
+  @media (max-width: 575.98px) {
+    .home-topbar {
+      height: auto;
+      min-height: 64px;
+    }
+
+    .home-topbar-inner {
+      flex-wrap: wrap;
+      padding-top: 12px;
+      padding-bottom: 12px;
+      gap: 12px;
+    }
+
+    .home-nav {
+      width: 100%;
+      justify-content: flex-end;
+    }
+
+    .home-account {
+      margin-right: auto;
+    }
+
+    .home-account-name {
+      max-width: 120px;
+    }
   }
 
   .home-nav-link:hover,

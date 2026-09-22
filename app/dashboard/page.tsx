@@ -226,6 +226,12 @@ export default async function UserDashboardPage() {
           <PageHeader
             eyebrow="ภาพรวมของฉัน"
             title="แดชบอร์ด"
+            actions={
+              <Link href="/" className="btn btn-outline-primary d-inline-flex align-items-center gap-2">
+                <i className="bi bi-house-door" aria-hidden="true" />
+                กลับหน้าหลัก
+              </Link>
+            }
             description={
               <>
                 ยินดีต้อนรับกลับมา,{" "}
